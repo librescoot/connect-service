@@ -11,6 +11,8 @@ This demonstration exercises the scooter, connect bouncer and real Sunshine Rail
 
 The profile is `sunshine-poc/v1`: an authenticated HTTP connection with a disposable CLI identity. It does not provision radio-gaga, create a real `Scooter`, start telemetry, enable remote commands or change a vehicle. This proves the handoff, web account confirmation and return path before adding vehicle configuration. Reporting, DBC, BLE, lsd and installer integration are outside this slice.
 
+The next integration follows the [configuration-first pairing direction](pairing-direction.md): an installed client owns its configuration; signed client packages remain a future extension.
+
 ## Run
 
 Requirements: Go 1.25.14, Ruby 3.4.12, Sunshine's installed bundle, Python 3, Docker, and free loopback ports 4300/4301. The automated browser check also needs Chrome and ChromeDriver (or Selenium Manager). Use an isolated Sunshine working copy containing the matching proof-of-concept changes, based on the intended local main. Do not point the launcher at a production deployment.

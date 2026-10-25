@@ -2,6 +2,8 @@
 
 This repository contains a standalone Go HTTP service backed by PostgreSQL for consented installation and firmware-version reporting, plus a reviewable protocol and cryptographic profile for future pairing endpoints. Production pairing endpoints and vehicle integration are not implemented. A separate [local three-component proof of concept](docs/pairing-poc.md) includes a scooter CLI, connect web chooser and Sunshine web-login adapter using disposable credentials.
 
+The [pairing direction](docs/pairing-direction.md) is configuration-first for installed clients, with profile negotiation and a future separately trusted signed-package extension. Package installation is outside the initial implementation.
+
 ## Reporting consent boundary
 
 The client must send no request while reporting permission is `unset` or `denied`. Only an explicit `allowed` choice permits installation registration and version-change reports. This server does not infer consent from scooter presence or enable reporting on its own. Reporting is separate from cloud-provider setup.
