@@ -1,6 +1,6 @@
 # Librescoot connect service
 
-This repository contains a standalone Go HTTP service backed by PostgreSQL for consented installation and firmware-version reporting, plus a reviewable protocol and cryptographic profile for future pairing endpoints. It does not include pairing HTTP handlers, a scooter client, web pairing flow, provider integration, or an operator UI.
+This repository contains a standalone Go HTTP service backed by PostgreSQL for consented installation and firmware-version reporting, plus a reviewable protocol and cryptographic profile for future pairing endpoints. Production pairing endpoints and vehicle integration are not implemented. A separate [local three-component proof of concept](docs/pairing-poc.md) includes a scooter CLI, connect web chooser and Sunshine web-login adapter using disposable credentials.
 
 ## Reporting consent boundary
 
@@ -8,7 +8,7 @@ The client must send no request while reporting permission is `unset` or `denied
 
 The basic report contains only the protocol and consent schema versions, random installation and event IDs, MDB/DBC board variant and firmware-version facts, the fixed software-capability enum, and installer version when known. Unknown versions are JSON `null`; an absent MDB or DBC board is omitted. Hardware serials, VIN, IMEI, SIM identifiers, location, uptime and riding data are not part of the schema. Unknown request properties are rejected.
 
-Optional hardware inventory is not implemented. It has no default-on path and is not accepted by these endpoints. Pairing schemas and state transitions are specified in [`docs/pairing-protocol-v1.md`](docs/pairing-protocol-v1.md) and [`docs/pairing-openapi-v1.yaml`](docs/pairing-openapi-v1.yaml), but there are no pairing endpoints, codes, provider offers, provider credentials, provider integrations, client behavior, dashboards or deployments in this slice. The documented Unix-socket and authenticated-Bluetooth gates remain required; pairing capabilities must not be exposed through lsd.
+Optional hardware inventory is not implemented. It has no default-on path and is not accepted by these endpoints. Pairing schemas and state transitions are specified in [`docs/pairing-protocol-v1.md`](docs/pairing-protocol-v1.md) and [`docs/pairing-openapi-v1.yaml`](docs/pairing-openapi-v1.yaml), but those production pairing endpoints and client integrations are not implemented. The local proof of concept runs independently and does not use lsd, Bluetooth, the dashboard or the reporting API.
 
 ## API
 
