@@ -96,6 +96,7 @@ This repository configures no backups. Any deployment must define a bounded back
 | `409` | `conflict` | Reused installation/event identifier with different data |
 | `413` | `request_too_large` | Body exceeds configured limit |
 | `415` | `unsupported_media_type` | JSON request lacks `application/json` |
+| `429` | `rate_limited` | Trusted ingress request-rate or connection limit exceeded |
 | `500` | `internal_error` | Generic persistence or service error |
 | `503` | `not_ready` | PostgreSQL readiness check failed |
 

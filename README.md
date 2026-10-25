@@ -19,7 +19,7 @@ The implemented contract is in [`docs/protocol-v1.md`](docs/protocol-v1.md) and 
 - `DELETE /api/v1/installations/{id}` deletes report facts and leaves a permanent ID-and-timestamp tombstone, preventing stale registration replay.
 - `GET /healthz` reports process health. `GET /readyz` checks database readiness. Both return no internal details.
 
-There is no public list or lookup endpoint. The server does not persist request IP addresses and emits no per-request access logs. Configure any TLS proxy without request URI, query, authorization-header or body logging.
+There is no public list or lookup endpoint. The server does not persist request IP addresses and emits no per-request access logs. Before public exposure, deploy a trusted ingress with a per-client API rate limit and connection cap, using [`deploy/nginx-rate-limit.conf.example`](deploy/nginx-rate-limit.conf.example) or equivalent controls. Do not persist client IP addresses or log request URIs, queries, authorization headers or bodies.
 
 ## Local run
 

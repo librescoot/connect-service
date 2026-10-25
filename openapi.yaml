@@ -22,6 +22,8 @@ paths:
       responses:
         '204':
           description: Registered or exact idempotent retry
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -53,6 +55,8 @@ paths:
       responses:
         '204':
           description: Report accepted or exact idempotent retry
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -78,6 +82,8 @@ paths:
       responses:
         '204':
           description: Report deleted; only the opaque installation ID and tombstone timestamp remain
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -255,7 +261,7 @@ components:
       properties:
         error:
           type: string
-          enum: [bad_request, unauthorized, not_found, method_not_allowed, conflict, request_too_large, unsupported_media_type, internal_error]
+          enum: [bad_request, unauthorized, not_found, method_not_allowed, conflict, request_too_large, unsupported_media_type, internal_error, rate_limited]
     HealthError:
       type: object
       additionalProperties: false
@@ -264,6 +270,12 @@ components:
         error:
           const: not_ready
   responses:
+    RateLimited:
+      description: Trusted ingress request-rate or connection limit exceeded.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     BadRequest:
       description: Invalid request; details are not returned.
       content:

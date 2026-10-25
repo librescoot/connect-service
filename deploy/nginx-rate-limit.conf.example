@@ -1,0 +1,52 @@
+# Include this complete example from nginx's http {} context. Replace only the
+# example hostname and TLS certificate paths in the virtual host.
+limit_req_zone $binary_remote_addr zone=connect_api_rate:10m rate=5r/m;
+limit_conn_zone $binary_remote_addr zone=connect_api_connections:10m;
+log_format connect_minimal '$time_iso8601 $request_method $status';
+
+server {
+    listen 443 ssl;
+    server_name connect.example.invalid;
+
+    ssl_certificate /etc/letsencrypt/live/connect.example.invalid/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/connect.example.invalid/privkey.pem;
+
+    client_max_body_size 16k;
+    client_body_timeout 10s;
+    access_log /var/log/nginx/connect-access.log connect_minimal;
+    error_log /dev/null crit;
+    limit_req_status 429;
+    limit_conn_status 429;
+    error_page 429 = @connect_rate_limited;
+
+    location ^~ /api/ {
+        limit_req zone=connect_api_rate burst=20 nodelay;
+        limit_conn connect_api_connections 10;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 2s;
+        proxy_send_timeout 10s;
+        proxy_read_timeout 10s;
+        proxy_pass http://127.0.0.1:8080;
+    }
+
+    location = /healthz {
+        proxy_pass http://127.0.0.1:8080;
+    }
+
+    location = /readyz {
+        proxy_pass http://127.0.0.1:8080;
+    }
+
+    location @connect_rate_limited {
+        default_type application/json;
+        return 429 '{"error":"rate_limited"}';
+    }
+
+    location / {
+        return 404;
+    }
+}
