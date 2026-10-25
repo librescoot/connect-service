@@ -1,0 +1,1071 @@
+openapi: 3.1.0
+info:
+  title: Librescoot pairing protocol v1
+  version: 1.0.0
+  description: >-
+    Protocol contract only. Pairing endpoints are not implemented by this repository slice.
+servers:
+  - url: https://connect.librescoot.org
+paths:
+  /api/v1/registrations:
+    post:
+      operationId: registerPairingDevice
+      summary: Create or idempotently retrieve a device pairing registration
+      security:
+        - deviceBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '201':
+          description: Registration created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '200':
+          description: Exact idempotent retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/registrations/{session_id}/claim-window:
+    post:
+      operationId: activateClaimWindow
+      summary: Activate or idempotently retry a local claim window
+      security:
+        - deviceBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SessionID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimWindowRequest'
+      responses:
+        '200':
+          description: Claim window activated or exact retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimWindowResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Expired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/registrations/{session_id}:
+    get:
+      operationId: getPairingRegistration
+      summary: Read sanitized registration and ceremony status
+      security:
+        - deviceBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SessionID'
+      responses:
+        '200':
+          description: Sanitized status for the authenticated registration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: cancelPairingRegistration
+      summary: Cancel this registration generation without disconnecting a provider
+      security:
+        - deviceBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SessionID'
+        - name: If-Match
+          in: header
+          required: true
+          description: Exact current generation precondition, including quotes.
+          schema:
+            type: string
+            pattern: '^"generation-(0|[1-9][0-9]*)"$'
+      responses:
+        '204':
+          description: Cancelled or exact retry for the same terminal generation
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Generation changed or a provider connection is already established
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/registrations/{session_id}/offer:
+    get:
+      operationId: fetchPairingOffer
+      summary: Fetch the immutable signed offer for the current generation
+      security:
+        - deviceBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SessionID'
+      responses:
+        '200':
+          description: Exact stored offer and non-secret metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferDelivery'
+        '204':
+          description: No offer is ready
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          $ref: '#/components/responses/Expired'
+  /api/v1/registrations/{session_id}/result:
+    post:
+      operationId: submitDeviceOfferResult
+      summary: Submit an idempotent progress update or terminal device result
+      security:
+        - deviceBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SessionID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceResult'
+      responses:
+        '204':
+          description: Result accepted or exact retry
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Expired'
+  /pair/exchange:
+    post:
+      operationId: exchangeClaimCapability
+      summary: Exchange a typed code or QR-fragment capability for a browser ceremony
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimExchangeRequest'
+      responses:
+        '200':
+          description: Ceremony cookie is set; response contains the CSRF token and sanitized ceremony metadata
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: Secure; HttpOnly; SameSite=Lax; Path=/pair; no token in response JSON.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimExchangeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Invalid, expired, consumed or unknown capability; indistinguishable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /pair/status:
+    get:
+      operationId: getBrowserPairingStatus
+      summary: Read sanitized status for the browser ceremony cookie
+      security:
+        - browserCeremonyCookie: []
+      responses:
+        '200':
+          description: Sanitized current ceremony state; never includes encrypted or plaintext offer data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '410':
+          $ref: '#/components/responses/Expired'
+  /pair/provider:
+    post:
+      operationId: choosePairingProvider
+      summary: Explicitly select one enabled provider for the current generation
+      security:
+        - browserCeremonyCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CSRFToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderSelectionRequest'
+      responses:
+        '303':
+          description: Redirect to the exact registered provider entrypoint with a non-secret handoff ID in the path
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                format: uri
+        '200':
+          description: Exact idempotent retry returns the same provider handoff redirect
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                format: uri
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Expired'
+  /pair/cancel:
+    post:
+      operationId: cancelBrowserCeremony
+      summary: Cancel only this pending browser ceremony generation
+      security:
+        - browserCeremonyCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CSRFToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserCancellationRequest'
+      responses:
+        '204':
+          description: Matching pending generation cancelled or exact retry
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Generation changed or provider connection is already established
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/provider/handoffs/{handoff_id}/redeem:
+    post:
+      operationId: redeemProviderHandoff
+      summary: Redeem one audience-bound handoff using the registered provider credential
+      security:
+        - providerBearer: []
+      parameters:
+        - name: handoff_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/OpaqueID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandoffRedemptionRequest'
+      responses:
+        '200':
+          description: Handoff context for the selected provider and exact generation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffRedemptionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Expired'
+  /api/v1/provider/registrations/{session_id}:
+    get:
+      operationId: getProviderRegistrationStatus
+      summary: Read sanitized status for a registration selected for this authenticated provider
+      security:
+        - providerBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SessionID'
+      responses:
+        '200':
+          description: Status for this provider's selected session, including cancellation and receipt state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderRegistrationStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/provider/registrations/{session_id}/offers:
+    post:
+      operationId: submitProviderOffer
+      summary: Submit one immutable signed and device-encrypted offer
+      security:
+        - providerBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SessionID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderOfferSubmission'
+      responses:
+        '201':
+          description: Offer accepted as the immutable offer for this generation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferAccepted'
+        '200':
+          description: Exact transaction and signed-byte retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Expired'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+  /api/v1/provider/transactions/{transaction_id}/receipt:
+    post:
+      operationId: submitProviderConnectionReceipt
+      summary: Record the provider's authenticated connection receipt for an exact offer
+      security:
+        - providerBearer: []
+      parameters:
+        - name: transaction_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/OpaqueID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderReceipt'
+      responses:
+        '204':
+          description: Receipt accepted or exact retry
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Expired'
+components:
+  securitySchemes:
+    deviceBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: 32-byte random base64url polling credential
+    providerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: registered provider server credential
+    browserCeremonyCookie:
+      type: apiKey
+      in: cookie
+      name: connect_pairing
+  parameters:
+    SessionID:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueID'
+    CSRFToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueID'
+  schemas:
+    OpaqueID:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: '^[A-Za-z0-9_-]{43}$'
+      description: Unpadded base64url encoding of 32 cryptographically random bytes.
+    ProtocolVersion:
+      type: integer
+      const: 1
+    ProviderID:
+      type: string
+      minLength: 1
+      maxLength: 32
+      pattern: '^[a-z0-9-]+$'
+      description: Exact configured provider ID; v1 deployment allowlist contains sunshine only.
+    PublicDeviceKey:
+      type: object
+      additionalProperties: false
+      required: [kty, crv, x, y, kid]
+      properties:
+        kty:
+          const: EC
+        crv:
+          const: P-256
+        x:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: '^[A-Za-z0-9_-]{43}$'
+        y:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: '^[A-Za-z0-9_-]{43}$'
+        kid:
+          const: device-p256-v1
+    RegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, creation_request_id, device_public_key]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        creation_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+        device_public_key:
+          $ref: '#/components/schemas/PublicDeviceKey'
+    RegistrationResponse:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, generation, state, recipient_key_fingerprint, registration_expires_at, server_time, polling]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          const: 0
+        state:
+          const: registered
+        recipient_key_fingerprint:
+          $ref: '#/components/schemas/OpaqueID'
+        registration_expires_at:
+          type: integer
+          minimum: 1
+          description: Unix seconds, exactly seven days after registration creation.
+        server_time:
+          type: integer
+          minimum: 1
+        polling:
+          type: object
+          additionalProperties: false
+          required: [initial_seconds, maximum_seconds]
+          properties:
+            initial_seconds:
+              const: 10
+            maximum_seconds:
+              const: 300
+    ClaimWindowRequest:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, activation_request_id, claim_code, qr_capability]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        activation_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+        claim_code:
+          type: string
+          minLength: 10
+          maxLength: 10
+          pattern: '^[0-9A-HJKMNP-TV-Z]{10}$'
+          description: Crockford Base32, canonical ungrouped uppercase form.
+        qr_capability:
+          $ref: '#/components/schemas/OpaqueID'
+    ClaimWindowResponse:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, generation, state, claim_expires_at, registration_expires_at]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        state:
+          const: claim_active
+        claim_expires_at:
+          type: integer
+          minimum: 1
+          description: Earlier of activation plus 15 minutes or registration hard expiry.
+        registration_expires_at:
+          type: integer
+          minimum: 1
+    RegistrationStatus:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, generation, state, registration_expires_at, server_time]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 0
+        state:
+          $ref: '#/components/schemas/RegistrationState'
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        claim_expires_at:
+          type: integer
+          minimum: 1
+        ceremony_expires_at:
+          type: integer
+          minimum: 1
+        offer_expires_at:
+          type: integer
+          minimum: 1
+        registration_expires_at:
+          type: integer
+          minimum: 1
+        server_time:
+          type: integer
+          minimum: 1
+        error_code:
+          $ref: '#/components/schemas/PairingErrorCode'
+    RegistrationState:
+      type: string
+      enum: [registered, claim_active, browser_open, provider_selected, handoff_redeemed, offer_ready, offer_fetched, applying, failed, device_committed, connected, cancelled, expired]
+    ClaimExchangeRequest:
+      oneOf:
+        - $ref: '#/components/schemas/ClaimCodeExchange'
+        - $ref: '#/components/schemas/QRCapabilityExchange'
+    ClaimCodeExchange:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, exchange_request_id, claim_code]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        exchange_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+        claim_code:
+          type: string
+          minLength: 10
+          maxLength: 10
+          pattern: '^[0-9A-HJKMNP-TV-Z]{10}$'
+    QRCapabilityExchange:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, exchange_request_id, qr_capability]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        exchange_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+        qr_capability:
+          $ref: '#/components/schemas/OpaqueID'
+    ClaimExchangeResponse:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, csrf_token, session_id, generation, ceremony_expires_at, enabled_providers]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        csrf_token:
+          $ref: '#/components/schemas/OpaqueID'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        ceremony_expires_at:
+          type: integer
+          minimum: 1
+        enabled_providers:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ProviderID'
+    BrowserStatus:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, generation, state, ceremony_expires_at, enabled_providers]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        generation:
+          type: integer
+          minimum: 1
+        state:
+          type: string
+          enum: [browser_open, provider_selected, handoff_redeemed, offer_ready, offer_fetched, waiting_for_safe_state, applying, failed, device_committed, connected, cancelled, expired]
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        offer_expires_at:
+          type: integer
+          minimum: 1
+        ceremony_expires_at:
+          type: integer
+          minimum: 1
+        enabled_providers:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ProviderID'
+        error_code:
+          $ref: '#/components/schemas/PairingErrorCode'
+    ProviderSelectionRequest:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, generation, selection_request_id, provider_id]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        generation:
+          type: integer
+          minimum: 1
+        selection_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+    BrowserCancellationRequest:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, generation, cancellation_request_id]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        generation:
+          type: integer
+          minimum: 1
+        cancellation_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+    HandoffRedemptionRequest:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, redemption_request_id]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        redemption_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+    HandoffRedemptionResponse:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, handoff_id, session_id, generation, provider_id, registration_expires_at, recipient_key_fingerprint, recipient_public_key, offer_expires_by]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        handoff_id:
+          $ref: '#/components/schemas/OpaqueID'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+        registration_expires_at:
+          type: integer
+          minimum: 1
+        recipient_key_fingerprint:
+          $ref: '#/components/schemas/OpaqueID'
+        recipient_public_key:
+          $ref: '#/components/schemas/PublicDeviceKey'
+        offer_expires_by:
+          type: integer
+          minimum: 1
+          description: Offer expiry cannot exceed this registration expiry.
+    ProviderOfferSubmission:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, signed_offer]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        signed_offer:
+          $ref: '#/components/schemas/CompactJWS'
+          description: Compact ES256 JWS whose payload contains a compact ECDH-ES+A256KW/A256GCM JWE.
+    OfferAccepted:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, generation, provider_id, transaction_id, ciphertext_digest, expires_at]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        expires_at:
+          type: integer
+          minimum: 1
+    OfferDelivery:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, generation, provider_id, transaction_id, ciphertext_digest, expires_at, signed_offer]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        expires_at:
+          type: integer
+          minimum: 1
+        signed_offer:
+          $ref: '#/components/schemas/CompactJWS'
+    DeviceResult:
+      oneOf:
+        - $ref: '#/components/schemas/DeviceProgressResult'
+        - $ref: '#/components/schemas/DeviceCommittedResult'
+        - $ref: '#/components/schemas/DeviceFailedResult'
+    DeviceProgressResult:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, generation, transaction_id, ciphertext_digest, result_id, sequence, status]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        generation:
+          type: integer
+          minimum: 1
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        result_id:
+          $ref: '#/components/schemas/OpaqueID'
+        sequence:
+          type: integer
+          minimum: 1
+        status:
+          enum: [waiting_for_safe_state, applying]
+    DeviceCommittedResult:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, generation, transaction_id, ciphertext_digest, result_id, sequence, status]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        generation:
+          type: integer
+          minimum: 1
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        result_id:
+          $ref: '#/components/schemas/OpaqueID'
+        sequence:
+          type: integer
+          minimum: 1
+        status:
+          const: committed
+    DeviceFailedResult:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, generation, transaction_id, ciphertext_digest, result_id, sequence, status, error_code]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        generation:
+          type: integer
+          minimum: 1
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        result_id:
+          $ref: '#/components/schemas/OpaqueID'
+        sequence:
+          type: integer
+          minimum: 1
+        status:
+          const: failed
+        error_code:
+          type: string
+          enum: [apply_failed, probe_failed, existing_configuration, incompatible_protocol]
+    ProviderRegistrationStatus:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, generation, provider_id, state, registration_expires_at, server_time, connection_receipt]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+        state:
+          $ref: '#/components/schemas/RegistrationState'
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        offer_expires_at:
+          type: integer
+          minimum: 1
+        registration_expires_at:
+          type: integer
+          minimum: 1
+        server_time:
+          type: integer
+          minimum: 1
+        device_result:
+          type: string
+          enum: [waiting_for_safe_state, applying, committed, failed]
+        error_code:
+          $ref: '#/components/schemas/PairingErrorCode'
+        connection_receipt:
+          type: boolean
+          description: True only after the provider's authenticated receipt is persisted.
+    ProviderReceipt:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, receipt_request_id, session_id, generation, ciphertext_digest, receipt]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        receipt_request_id:
+          $ref: '#/components/schemas/OpaqueID'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+        receipt:
+          const: connected
+    CompactJWE:
+      type: string
+      minLength: 1
+      maxLength: 49152
+      pattern: '^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+      description: Compact JWE with ECDH-ES+A256KW and A256GCM.
+    CompactJWS:
+      type: string
+      minLength: 1
+      maxLength: 65536
+      pattern: '^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+      description: Compact JWS with ES256 and the exact protected header below.
+    JWSProtectedHeader:
+      type: object
+      additionalProperties: false
+      required: [alg, kid, typ]
+      properties:
+        alg:
+          const: ES256
+        kid:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9._-]+$'
+          description: Exact registered key ID for the signed provider ID; never a URL.
+        typ:
+          const: application/librescoot-pairing-offer+jws
+    SignedOfferPayload:
+      type: object
+      additionalProperties: false
+      required: [protocol_version, session_id, generation, provider_id, transaction_id, issued_at, expires_at, recipient_key_fingerprint, ciphertext_digest, ciphertext]
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        session_id:
+          $ref: '#/components/schemas/OpaqueID'
+        generation:
+          type: integer
+          minimum: 1
+        provider_id:
+          $ref: '#/components/schemas/ProviderID'
+        transaction_id:
+          $ref: '#/components/schemas/OpaqueID'
+        issued_at:
+          type: integer
+          minimum: 1
+        expires_at:
+          type: integer
+          minimum: 1
+        recipient_key_fingerprint:
+          $ref: '#/components/schemas/OpaqueID'
+        ciphertext_digest:
+          $ref: '#/components/schemas/OpaqueID'
+          description: SHA-256 of the complete compact JWE bytes, unpadded base64url.
+        ciphertext:
+          $ref: '#/components/schemas/CompactJWE'
+    EphemeralP256Key:
+      type: object
+      additionalProperties: false
+      required: [kty, crv, x, y]
+      properties:
+        kty:
+          const: EC
+        crv:
+          const: P-256
+        x:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: '^[A-Za-z0-9_-]{43}$'
+        y:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: '^[A-Za-z0-9_-]{43}$'
+    JWEProtectedHeader:
+      type: object
+      additionalProperties: false
+      required: [alg, enc, kid, cty, connect-v, connect-sid, connect-gen, connect-pid, connect-tid, connect-iat, connect-exp, connect-recipient-thumbprint, epk]
+      properties:
+        alg:
+          const: ECDH-ES+A256KW
+        enc:
+          const: A256GCM
+        kid:
+          const: device-p256-v1
+        cty:
+          const: application/librescoot-pairing-config+json
+        connect-v:
+          const: 1
+        connect-sid:
+          $ref: '#/components/schemas/OpaqueID'
+        connect-gen:
+          type: integer
+          minimum: 1
+        connect-pid:
+          $ref: '#/components/schemas/ProviderID'
+        connect-tid:
+          $ref: '#/components/schemas/OpaqueID'
+        connect-iat:
+          type: integer
+          minimum: 1
+        connect-exp:
+          type: integer
+          minimum: 1
+        connect-recipient-thumbprint:
+          $ref: '#/components/schemas/OpaqueID'
+        epk:
+          $ref: '#/components/schemas/EphemeralP256Key'
+    PairingErrorCode:
+      type: string
+      enum: [pending, expired, cancelled, rate_limited, incompatible_protocol, provider_unavailable, identity_conflict, existing_configuration, waiting_for_safe_state, apply_failed, probe_failed, acknowledgement_pending, already_connected]
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/PairingErrorCode'
+  responses:
+    BadRequest:
+      description: Invalid or unsupported request; submitted values are not reflected.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid endpoint-specific credential.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Unknown route or resource; does not enable registration enumeration.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Idempotency, generation, provider, transaction or immutable-offer conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Expired:
+      description: Capability, ceremony, registration or offer has expired.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooLarge:
+      description: Request exceeds the fixed endpoint body limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Request is rate limited with bounded retry instructions.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
