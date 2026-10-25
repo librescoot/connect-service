@@ -1,0 +1,314 @@
+openapi: 3.1.0
+info:
+  title: Librescoot installation reporting API
+  version: 1.0.0
+  description: Consent-gated installation and firmware-version reporting only. Pairing and provider APIs are not implemented.
+servers:
+  - url: https://connect.librescoot.org
+    description: Intended production origin; deployment is not part of this repository slice.
+paths:
+  /api/v1/installations:
+    post:
+      operationId: registerInstallation
+      summary: Register an installation and submit its first report
+      security:
+        - reportingBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Report'
+      responses:
+        '204':
+          description: Registered or exact idempotent retry
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/installations/{installation_id}/report:
+    put:
+      operationId: reportInstallationVersion
+      summary: Submit a changed installation report
+      security:
+        - reportingBearer: []
+      parameters:
+        - $ref: '#/components/parameters/InstallationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Report'
+      responses:
+        '204':
+          description: Report accepted or exact idempotent retry
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/installations/{installation_id}:
+    delete:
+      operationId: deleteInstallationReport
+      summary: Delete an installation report and leave a replay-protected tombstone
+      security:
+        - reportingBearer: []
+      parameters:
+        - $ref: '#/components/parameters/InstallationID'
+      responses:
+        '204':
+          description: Report deleted; only the opaque installation ID and tombstone timestamp remain
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /healthz:
+    get:
+      operationId: health
+      summary: Process liveness
+      responses:
+        '204':
+          description: Process is alive
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+  /readyz:
+    get:
+      operationId: readiness
+      summary: Database readiness
+      responses:
+        '204':
+          description: PostgreSQL is reachable
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '503':
+          description: PostgreSQL readiness check failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthError'
+components:
+  securitySchemes:
+    reportingBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: 32-byte random base64url credential
+  parameters:
+    InstallationID:
+      name: installation_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueID'
+  schemas:
+    OpaqueID:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: '^[A-Za-z0-9_-]{43}$'
+      description: Unpadded base64url encoding of 32 cryptographically random bytes.
+    Version:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: '^[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}$'
+    MDBBoard:
+      type: object
+      additionalProperties: false
+      required: [board_variant, firmware_version, version_known, version_live]
+      properties:
+        board_variant:
+          type: [string, 'null']
+          enum: [unu-mdb, null]
+        firmware_version:
+          oneOf:
+            - $ref: '#/components/schemas/Version'
+            - type: 'null'
+        version_known:
+          type: boolean
+        version_live:
+          type: boolean
+      allOf:
+        - if:
+            properties:
+              firmware_version:
+                type: 'null'
+          then:
+            properties:
+              version_known:
+                const: false
+              version_live:
+                const: false
+        - if:
+            properties:
+              version_live:
+                const: true
+          then:
+            properties:
+              version_known:
+                const: true
+    DBCBoard:
+      type: object
+      additionalProperties: false
+      required: [board_variant, firmware_version, version_known, version_live]
+      properties:
+        board_variant:
+          type: [string, 'null']
+          enum: [unu-dbc, null]
+        firmware_version:
+          oneOf:
+            - $ref: '#/components/schemas/Version'
+            - type: 'null'
+        version_known:
+          type: boolean
+        version_live:
+          type: boolean
+      allOf:
+        - if:
+            properties:
+              firmware_version:
+                type: 'null'
+          then:
+            properties:
+              version_known:
+                const: false
+              version_live:
+                const: false
+        - if:
+            properties:
+              version_live:
+                const: true
+          then:
+            properties:
+              version_known:
+                const: true
+    Report:
+      type: object
+      additionalProperties: false
+      required:
+        - protocol_version
+        - consent_version
+        - installation_id
+        - event_id
+        - software_capabilities
+        - installer_version
+      properties:
+        protocol_version:
+          type: integer
+          const: 1
+        consent_version:
+          type: integer
+          const: 1
+          description: Client consent schema version; client sends requests only after explicit permission.
+        installation_id:
+          $ref: '#/components/schemas/OpaqueID'
+        event_id:
+          $ref: '#/components/schemas/OpaqueID'
+        mdb:
+          $ref: '#/components/schemas/MDBBoard'
+          description: Omit only when the MDB board is absent.
+        dbc:
+          $ref: '#/components/schemas/DBCBoard'
+          description: Omit only when the DBC board is absent.
+        software_capabilities:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items:
+            type: string
+            enum: [connect.reporting.v1, connect.pairing.v1]
+          description: Sorted list of capabilities actually implemented by the client.
+        installer_version:
+          oneOf:
+            - $ref: '#/components/schemas/Version'
+            - type: 'null'
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum: [bad_request, unauthorized, not_found, method_not_allowed, conflict, request_too_large, unsupported_media_type, internal_error]
+    HealthError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          const: not_ready
+  responses:
+    BadRequest:
+      description: Invalid request; details are not returned.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid credential, or no active record.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Installation or event identifier conflicts with stored data.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooLarge:
+      description: Request exceeds the configured body limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnsupportedMediaType:
+      description: application/json is required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Generic server error without internal details.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Unknown route or invalid resource path.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    MethodNotAllowed:
+      description: Unsupported method; the Allow response header names the supported method.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

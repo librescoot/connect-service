@@ -1,0 +1,28 @@
+[Unit]
+Description=Librescoot connect reporting service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=connect-service
+Group=connect-service
+UMask=0077
+EnvironmentFile=/etc/connect-service/server.env
+ExecStart=/usr/local/bin/connect-server
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
