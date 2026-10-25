@@ -34,10 +34,14 @@ server {
     }
 
     location = /healthz {
+        limit_req zone=connect_api_rate burst=20 nodelay;
+        limit_conn connect_api_connections 10;
         proxy_pass http://127.0.0.1:8080;
     }
 
     location = /readyz {
+        limit_req zone=connect_api_rate burst=20 nodelay;
+        limit_conn connect_api_connections 10;
         proxy_pass http://127.0.0.1:8080;
     }
 
