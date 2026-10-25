@@ -53,9 +53,10 @@ go test ./...
 CONNECT_TEST_DATABASE_URL='postgres://connect:local-test-only@127.0.0.1:55432/connect_service_test?sslmode=disable' \
   go test ./internal/store -run TestPostgresReportingLifecycle -count=1
 go vet ./...
+ruby scripts/pairing-jose-interop.rb
 ```
 
-The integration test applies migrations and creates random synthetic installations in that database. Use a disposable database, not a production database.
+The Ruby interoperability check requires the `jose` gem at version 1.2.0. It verifies and decrypts both the Go-generated and Ruby-generated synthetic fixtures; `go test ./...` independently verifies both fixtures with go-jose. The integration test applies migrations and creates random synthetic installations in that database. Use a disposable database, not a production database.
 
 ## Configuration
 

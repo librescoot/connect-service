@@ -1,6 +1,6 @@
 # Pairing protocol v1
 
-Status: protocol and cryptographic wrapper frozen for review. This is a contract only; no pairing HTTP handlers, database persistence, provider enrollment, provider credentials, scooter clients or UI are implemented here. The machine-readable API and message schemas are in [`pairing-openapi-v1.yaml`](pairing-openapi-v1.yaml). Installation reporting remains a separate protocol in [`protocol-v1.md`](protocol-v1.md).
+Status: protocol v1 wrapper is cross-language verified and frozen for review. This is a contract only; no pairing HTTP handlers, database persistence, provider enrollment, provider credentials, scooter clients or UI are implemented here. The machine-readable API and message schemas are in [`pairing-openapi-v1.yaml`](pairing-openapi-v1.yaml). Installation reporting remains a separate protocol in [`protocol-v1.md`](protocol-v1.md).
 
 ## Security and trust boundaries
 
@@ -144,11 +144,11 @@ The reporting objects and endpoints in `protocol-v1.md` and `openapi.yaml` remai
 
 ## Go and Ruby JOSE interoperability
 
-The Go implementation uses `github.com/go-jose/go-jose/v4` v4.1.6, the patched baseline checked for this freeze. Go/Ruby producers and consumers must implement the exact compact JWS and compact JWE algorithms, protected-header member sets, sizes, casing, ID encodings, RFC 7638 thumbprint, Unix-second times and digest calculation above. Both sides reject rather than downgrade unknown algorithms or headers. Neither implementation performs `jku`, `x5u`, embedded-key, network key resolution or compression processing. Ruby ES256 signatures must be JOSE `R || S`, and JWE ECDH uses the per-session P-256 public JWK with `kid` exactly `device-p256-v1`.
+The Go implementation pins `github.com/go-jose/go-jose/v4` v4.1.6, whose upstream release includes the fix for [GHSA-mgcc-cww5-fp2q](https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q). Go/Ruby producers and consumers must implement the exact compact JWS and compact JWE algorithms, protected-header member sets, sizes, casing, ID encodings, RFC 7638 thumbprint, Unix-second times and digest calculation above. Both sides reject rather than downgrade unknown algorithms or headers. Neither implementation performs `jku`, `x5u`, embedded-key, network key resolution or compression processing. Ruby ES256 signatures must be JOSE `R || S`, and JWE ECDH uses the per-session P-256 public JWK with `kid` exactly `device-p256-v1`.
 
 The JOSE protected-header segment is authenticated as serialized by its producer; consumers authenticate the exact transmitted segment and compare its parsed binding members. The JWS payload is the exact transmitted UTF-8 JSON byte sequence covered by the signature. JSON member ordering is not a cross-language signing convention; duplicate members, unknown members and trailing JSON are rejected. Ruby must serialize once and pass the same bytes to its JOSE library, not parse and reserialize a signed payload before verification. CSPRNG output and the compact JWE are intentionally not deterministic.
 
-The Go crypto tests use fixed synthetic P-256 key scalars, synthetic IDs and synthetic plaintext. [`fixtures/pairing-v1.json`](fixtures/pairing-v1.json) is a fixed signed-and-encrypted test vector; its private scalars and payload are test-only and contain no production credentials. Ruby interoperability has not been run or claimed by this slice. Before provider deployment, add a Ruby-generated offer fixture verified by Go and a Go-generated offer decrypted and signature-verified by Ruby, with no production credentials or keys.
+The Go crypto tests use fixed synthetic P-256 key scalars, synthetic IDs and synthetic plaintext. [`fixtures/pairing-v1.json`](fixtures/pairing-v1.json) is a Go-generated signed-and-encrypted vector; [`fixtures/pairing-v1-ruby.json`](fixtures/pairing-v1-ruby.json) is a Ruby-generated reciprocal vector. Go tests verify and decrypt both. Run `ruby scripts/pairing-jose-interop.rb` with Ruby JOSE 1.2.0 to verify and decrypt both fixtures in Ruby. These fixtures and the test-only private scalars contain no production credentials. Interoperability was run with Go go-jose/v4 4.1.6 and Ruby jose 1.2.0.
 
 ## Error behavior and headers
 

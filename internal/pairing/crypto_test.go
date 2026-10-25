@@ -23,32 +23,36 @@ import (
 
 const testProviderKeyID = "sunshine-test-key-1"
 
-func TestPublishedPairingFixture(t *testing.T) {
-	data, err := os.ReadFile("../../docs/fixtures/pairing-v1.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fixture struct {
-		ProviderKeyID          string  `json:"provider_key_id"`
-		ProviderPrivateScalar  string  `json:"provider_private_scalar_hex"`
-		RecipientPrivateScalar string  `json:"recipient_private_scalar_hex"`
-		Now                    int64   `json:"now"`
-		RegistrationExpiresAt  int64   `json:"registration_expires_at"`
-		Binding                Binding `json:"binding"`
-		Plaintext              string  `json:"plaintext"`
-		SignedOffer            string  `json:"signed_offer"`
-	}
-	if err := json.Unmarshal(data, &fixture); err != nil {
-		t.Fatal(err)
-	}
-	providerKey := syntheticP256HexKey(t, fixture.ProviderPrivateScalar)
-	deviceKey := syntheticP256HexKey(t, fixture.RecipientPrivateScalar)
-	got, err := openOfferForTest(fixture.SignedOffer, fixture.Binding, fixture.RegistrationExpiresAt, fixture.ProviderKeyID, &providerKey.PublicKey, deviceKey, time.Unix(fixture.Now, 0))
-	if err != nil {
-		t.Fatalf("openOfferForTest(fixture) error = %v", err)
-	}
-	if string(got) != fixture.Plaintext {
-		t.Fatalf("fixture plaintext = %s, want %s", got, fixture.Plaintext)
+func TestPublishedPairingFixtures(t *testing.T) {
+	for _, path := range []string{"pairing-v1.json", "pairing-v1-ruby.json"} {
+		t.Run(path, func(t *testing.T) {
+			data, err := os.ReadFile("../../docs/fixtures/" + path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fixture struct {
+				ProviderKeyID          string  `json:"provider_key_id"`
+				ProviderPrivateScalar  string  `json:"provider_private_scalar_hex"`
+				RecipientPrivateScalar string  `json:"recipient_private_scalar_hex"`
+				Now                    int64   `json:"now"`
+				RegistrationExpiresAt  int64   `json:"registration_expires_at"`
+				Binding                Binding `json:"binding"`
+				Plaintext              string  `json:"plaintext"`
+				SignedOffer            string  `json:"signed_offer"`
+			}
+			if err := json.Unmarshal(data, &fixture); err != nil {
+				t.Fatal(err)
+			}
+			providerKey := syntheticP256HexKey(t, fixture.ProviderPrivateScalar)
+			deviceKey := syntheticP256HexKey(t, fixture.RecipientPrivateScalar)
+			got, err := openOfferForTest(fixture.SignedOffer, fixture.Binding, fixture.RegistrationExpiresAt, fixture.ProviderKeyID, &providerKey.PublicKey, deviceKey, time.Unix(fixture.Now, 0))
+			if err != nil {
+				t.Fatalf("openOfferForTest(fixture) error = %v", err)
+			}
+			if string(got) != fixture.Plaintext {
+				t.Fatalf("fixture plaintext = %s, want %s", got, fixture.Plaintext)
+			}
+		})
 	}
 }
 
