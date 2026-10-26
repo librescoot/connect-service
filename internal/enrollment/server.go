@@ -456,7 +456,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if save() {
 			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; form-action 'self' "+p.Origin+"; frame-ancestors 'none'; base-uri 'none'")
-			http.Redirect(w, r, p.Origin+"/connect?handoff_id="+current.HandoffID, 303)
+			http.Redirect(w, r, p.Origin+"/connect#"+current.HandoffID, 303)
 		}
 		return
 	}

@@ -81,10 +81,18 @@ func TestProfileNegotiationAndPrivateClaim(t *testing.T) {
 	if !strings.Contains(string(page), "Continue to Sunshine") {
 		t.Fatal("compatible provider missing")
 	}
-	postForm(t, browser, server.URL+"/pair", url.Values{"action": {"provider"}, "provider": {"sunshine"}, "csrf": {csrf}}, 303)
+	redirect, err := browser.PostForm(server.URL+"/pair", url.Values{"action": {"provider"}, "provider": {"sunshine"}, "csrf": {csrf}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	redirect.Body.Close()
 	handler.mu.Lock()
 	handoff := handler.state.Sessions[registration.ID].HandoffID
 	handler.mu.Unlock()
+	location, err := url.Parse(redirect.Header.Get("Location"))
+	if err != nil || redirect.StatusCode != 303 || location.RawQuery != "" || location.Fragment != handoff || location.Path != "/connect" {
+		t.Fatal("provider handoff must use a fragment, never a request query")
+	}
 	providerURL := server.URL + "/api/v1/provider/sunshine/" + handoff
 	call(t, Client(), "GET", providerURL, "wrong", "", 401)
 	var context struct {
