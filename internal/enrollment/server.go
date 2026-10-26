@@ -162,11 +162,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, provider := range s.providers {
 		destinations = append(destinations, provider.Origin)
 	}
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self' "+strings.Join(destinations, " ")+"; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self' "+strings.Join(destinations, " ")+"; frame-ancestors 'none'; base-uri 'none'")
 	r.Body = http.MaxBytesReader(w, r.Body, 8192)
 	defer r.Body.Close()
 	if r.URL.Path == "/healthz" && r.Method == http.MethodGet {
 		jsonReply(w, 200, map[string]string{"version": s.version})
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/assets/") && r.Method == http.MethodGet {
+		if strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		pairAssetHandler.ServeHTTP(w, r)
 		return
 	}
 	if r.URL.Path == "/pair.css" && r.Method == http.MethodGet {
@@ -459,7 +467,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if save() {
-			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self' "+p.Origin+"; frame-ancestors 'none'; base-uri 'none'")
+			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self' "+p.Origin+"; frame-ancestors 'none'; base-uri 'none'")
 			http.Redirect(w, r, p.Origin+"/connect#"+current.HandoffID, 303)
 		}
 		return

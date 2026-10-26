@@ -3,79 +3,95 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
   <title>Connect your scooter | Librescoot</title>
+  <link rel="icon" type="image/png" href="/assets/images/favicon.png">
+  <script src="/assets/theme-init.js"></script>
+  <link rel="stylesheet" href="/assets/fonts/fonts.css">
+  <link rel="stylesheet" href="/assets/style.css">
   <link rel="stylesheet" href="/pair.css">
+  <script src="/assets/theme-toggle.js" defer></script>
   <script src="/pair.js" defer></script>
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="https://librescoot.org" aria-label="Librescoot home">Librescoot<span class="brand-service">connect</span></a>
-    <span class="header-note">Your scooter. Your choice.</span>
-  </header>
-  <main>
-    <ol class="steps" aria-label="Pairing progress">
-      <li {{if not .Session}}aria-current="step"{{end}}><span class="step-number">1</span>Pairing code</li>
-      <li {{if .Session}}{{if ne .Session.State "approved"}}aria-current="step"{{end}}{{end}}><span class="step-number">2</span>Provider</li>
-      <li {{if .Session}}{{if eq .Session.State "approved"}}aria-current="step"{{end}}{{end}}><span class="step-number">3</span>Approval</li>
-    </ol>
-    <div class="pairing-layout">
-      <section class="introduction" aria-labelledby="page-title">
-        <p class="eyebrow">LIBRESCOOT CONNECT</p>
-        <h1 id="page-title">Your scooter,<br> connected.</h1>
-        <p>Connect to a cloud service of your choice. Start with your scooter's pairing code, then sign in with your provider.</p>
-        <p class="optional-note">Cloud connection is optional.<br>You decide where to connect.</p>
-      </section>
-      <section class="pairing-card" aria-labelledby="card-title">
-        {{if .Message}}<div class="alert" role="alert">{{.Message}} Check the code, or request a new one on your scooter.</div>{{end}}
-        {{if .Session}}
-          {{if eq .Session.State "approved"}}
-            <span class="status-badge">Approval received</span>
-            <h2 id="card-title">Finish on your scooter</h2>
-            <p>Your provider approved the connection. Run <code>connect wait</code> on your scooter to finish setup.</p>
-          {{else}}
-            <span class="status-badge">Scooter found</span>
-            <h2 id="card-title">Choose your provider</h2>
-            <p>You'll sign in and approve the connection on your provider's website.</p>
-          {{end}}
-          <div class="providers">
-            {{range .Providers}}
-              <form action="/pair" method="post">
-                <input type="hidden" name="csrf" value="{{$.CSRF}}">
-                <input type="hidden" name="action" value="provider">
-                <input type="hidden" name="provider" value="{{.ID}}">
-                <button class="provider-button" type="submit">Continue to {{.Name}}<span aria-hidden="true"></span></button>
-              </form>
-            {{end}}
-          </div>
-          <p class="card-note">Connection settings go directly between your scooter and your provider.</p>
-        {{else}}
-          <p class="card-kicker">LET'S GET STARTED</p>
-          <h2 id="card-title">Enter your pairing code</h2>
-          <p>Use the code shown on your scooter or by the connect command.</p>
-          <form action="/pair" method="post">
-            <input type="hidden" name="csrf" value="{{.CSRF}}">
-            <input type="hidden" name="action" value="exchange">
-            <div class="field">
-              <label for="pairing-code">Pairing code</label>
-              <input id="pairing-code" class="code-input" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="11" placeholder="XXXXX-XXXXX" aria-describedby="code-help">
-              <p class="input-help" id="code-help">10 letters and numbers. Codes expire after 15 minutes.</p>
-            </div>
-            <p class="qr-notice" id="qr-detected" role="status" hidden>Pairing link detected. Select "Find scooter" to continue.</p>
-            <details class="manual-link">
-              <summary>Have a pairing link token instead?</summary>
-              <div class="field">
-                <label for="pairing-qr">Pairing link token</label>
-                <input id="pairing-qr" name="qr" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="43" aria-describedby="qr-help">
-                <p class="input-help" id="qr-help">Scanning the QR code fills this in automatically. Use either a token or a code.</p>
-              </div>
-            </details>
-            <button class="primary-button" type="submit">Find scooter</button>
-          </form>
-        {{end}}
-      </section>
+  <nav class="nav nav-docs" aria-label="Main navigation">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <a href="https://librescoot.org"><img src="/assets/images/librescoot-logo-v3-full.png" alt="Librescoot" class="logo-small"></a>
+      </div>
+      <ul class="nav-links">
+        <li class="nav-item"><a href="https://librescoot.org">Website</a></li>
+        <li class="nav-item"><a href="https://downloads.librescoot.org/en/">Downloads</a></li>
+      </ul>
+      <div class="nav-controls">
+        <button type="button" class="nav-icon-btn theme-toggle" aria-label="Toggle theme">
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
     </div>
-    <footer class="site-footer"><span class="privacy-mark" aria-hidden="true"></span>Pairing only. No vehicle telemetry passes through this site.</footer>
+  </nav>
+  <main class="docs-main">
+    <div class="container">
+      <h1>Connect your scooter</h1>
+      <p class="lead">Enter your pairing code, choose a provider and approve the connection on its website.</p>
+      {{if .Message}}<div class="warning-box" role="alert"><p>{{.Message}} Check the code, or request a new one on your scooter.</p></div>{{end}}
+      <div class="docs-grid">
+        <section class="docs-card pairing-card" aria-labelledby="card-title">
+          {{if .Session}}
+            {{if eq .Session.State "approved"}}
+              <h2 id="card-title">Finish on your scooter</h2>
+              <p>Your provider approved the connection. Run <code>connect wait</code> on your scooter to finish setup.</p>
+            {{else}}
+              <h2 id="card-title">Choose your provider</h2>
+              <p>Your scooter was found. Continue to your provider to sign in and approve the connection.</p>
+            {{end}}
+            <div class="pairing-providers">
+              {{range .Providers}}
+                <form action="/pair" method="post">
+                  <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                  <input type="hidden" name="action" value="provider">
+                  <input type="hidden" name="provider" value="{{.ID}}">
+                  <button class="btn btn-primary provider-button" type="submit">Continue to {{.Name}}</button>
+                </form>
+              {{end}}
+            </div>
+          {{else}}
+            <h2 id="card-title">Enter your pairing code</h2>
+            <p>Use the code shown on your scooter or by the connect command.</p>
+            <form action="/pair" method="post">
+              <input type="hidden" name="csrf" value="{{.CSRF}}">
+              <input type="hidden" name="action" value="exchange">
+              <div class="pairing-field">
+                <label for="pairing-code">Pairing code</label>
+                <input id="pairing-code" class="pairing-code" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="11" placeholder="XXXXX-XXXXX" aria-describedby="code-help">
+                <p class="pairing-help" id="code-help">10 letters and numbers. Codes expire after 15 minutes.</p>
+              </div>
+              <div class="info-box" id="qr-detected" role="status" hidden><p>Pairing link detected. Select "Find scooter" to continue.</p></div>
+              <details class="pairing-token">
+                <summary>Have a pairing link token instead?</summary>
+                <div class="pairing-field">
+                  <label for="pairing-qr">Pairing link token</label>
+                  <input id="pairing-qr" name="qr" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="43" aria-describedby="qr-help">
+                  <p class="pairing-help" id="qr-help">Scanning the QR code fills this in automatically. Use either a token or a code.</p>
+                </div>
+              </details>
+              <button class="btn btn-primary" type="submit">Find scooter</button>
+            </form>
+          {{end}}
+        </section>
+        <aside class="docs-card">
+          <h2>Cloud connection is optional</h2>
+          <p>You choose which provider to use. You'll sign in and approve the connection on its website.</p>
+          <p class="pairing-explanation">Connection settings go directly between your scooter and your provider. No vehicle telemetry passes through this site.</p>
+        </aside>
+      </div>
+    </div>
   </main>
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-info"><strong>Librescoot</strong><p>Open-source firmware for your scooter.</p></div>
+      <div class="footer-links"><a href="https://librescoot.org">Website</a><a href="https://downloads.librescoot.org/en/">Downloads</a><a href="https://github.com/librescoot">GitHub</a></div>
+    </div>
+  </footer>
 </body>
 </html>
