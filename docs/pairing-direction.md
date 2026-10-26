@@ -4,7 +4,7 @@
 
 Start with configuration of an installed cloud client. Keep the pairing and claim-exchange envelope independent of providers, client configuration formats and filesystem layout. A future signed client-package delivery mechanism may extend the same flow, but is not required for configuration-only pairing.
 
-The local demonstration in [pairing-poc.md](pairing-poc.md) proves the three-component handoff with the synthetic `sunshine-poc/v1` profile. Real client provisioning and profile negotiation are not implemented by that demonstration.
+The local demonstration in [pairing-poc.md](pairing-poc.md) proves the three-component handoff with the synthetic `sunshine-poc/v1` profile. The separate [configuration-only enrollment implementation](enrollment-v1.md) adds real radio-gaga provisioning and profile negotiation; it does not change the synthetic demonstration.
 
 ## Smallest initial implementation
 

@@ -1,0 +1,34 @@
+[Unit]
+Description=Librescoot pairing rendezvous
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=connect-service
+Group=connect-service
+LoadCredential=pairing.json:/etc/connect-service/pairing.json
+ExecStart=/opt/connect-service/current/connect-bouncer -config %d/pairing.json -state /var/lib/connect-service/pairing.json -listen 127.0.0.1:8081
+WorkingDirectory=/var/lib/connect-service
+StateDirectory=connect-service
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=256M
+TasksMax=64
+LimitNOFILE=512
+
+[Install]
+WantedBy=multi-user.target

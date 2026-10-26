@@ -1,6 +1,16 @@
 # Generic deployment example
 
-This is a service-host example only. It contains no production address, database credentials or TLS material. Pairing/provider deployment is not implemented.
+These are generic service-host examples. They contain no private production address, database credentials or TLS material.
+
+## Configuration-only pairing
+
+Build `cmd/connect-bouncer` with an immutable version (`-ldflags '-X main.version=<commit>'`) and install it under `/opt/connect-service/releases/<commit>/connect-bouncer`, selected by a `current` symlink. Create an unprivileged `connect-service` user/group. Install [`connect-bouncer.service`](connect-bouncer.service) and a root-only `/etc/connect-service/pairing.json` based on [`pairing.json.example`](pairing.json.example). Generate an independent 32-byte random unpadded-base64url provider credential; configure the same credential only at that provider. Systemd passes this configuration as a private credential file.
+
+The bouncer listens on loopback behind a trusted HTTPS ingress. [`nginx-pairing.conf.example`](nginx-pairing.conf.example) provides request/connection limits and trusted-address handling; replace its documentation IP with the ingress's exact source address. The TLS ingress must overwrite `X-Real-IP` and preserve the configured Host. Do not enable access logs for pairing. Verify `/healthz` reports the expected revision, secure browser cookies and unauthenticated API denial before enabling a provider. The matching provider adapter must be enabled and validated independently.
+
+Only transient pairing state lives under `/var/lib/connect-service`, mode 0700, with private files and a process lock. It is capped, periodically expired and disposable: do not back it up or restore old capability state. Preserve registry secrets separately so recovery can start with empty pairing state. A bouncer outage does not interrupt established cloud connections. No reporting collection or PostgreSQL service is needed for this binary.
+
+## Installation reporting
 
 1. Build `connect-server` for the server architecture and install it as `/usr/local/bin/connect-server`.
 2. Create an unprivileged `connect-service` account and install `connect-server.service` under `/etc/systemd/system/`.

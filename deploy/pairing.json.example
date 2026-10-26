@@ -1,0 +1,12 @@
+{
+  "origin": "https://connect.librescoot.org",
+  "providers": [
+    {
+      "id": "sunshine",
+      "name": "Sunshine",
+      "origin": "https://sunshine.rescoot.org",
+      "profiles": ["radio-gaga/1"],
+      "credential": "REPLACE_WITH_32_RANDOM_BYTES_AS_UNPADDED_BASE64URL"
+    }
+  ]
+}

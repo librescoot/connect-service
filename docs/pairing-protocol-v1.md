@@ -1,6 +1,6 @@
 # Pairing protocol v1
 
-Status: protocol v1 wrapper is cross-language verified and frozen for review. This is a contract only; no pairing HTTP handlers, database persistence, provider enrollment, provider credentials, scooter clients or UI are implemented here. The machine-readable API and message schemas are in [`pairing-openapi-v1.yaml`](pairing-openapi-v1.yaml). Installation reporting remains a separate protocol in [`protocol-v1.md`](protocol-v1.md).
+Status: reviewed encrypted-offer proposal, separate from the implemented initial [claim-exchange enrollment flow](enrollment-v1.md). Its Go/Ruby wrapper fixtures remain available for that proposal. This is a contract only; no pairing HTTP handlers, database persistence, provider enrollment, provider credentials, scooter clients or UI are implemented here. The machine-readable API and message schemas are in [`pairing-openapi-v1.yaml`](pairing-openapi-v1.yaml). Installation reporting remains a separate protocol in [`protocol-v1.md`](protocol-v1.md).
 
 ## Security and trust boundaries
 

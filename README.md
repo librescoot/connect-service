@@ -1,6 +1,6 @@
 # Librescoot connect service
 
-This repository contains a standalone Go HTTP service backed by PostgreSQL for consented installation and firmware-version reporting, plus a reviewable protocol and cryptographic profile for future pairing endpoints. Production pairing endpoints and vehicle integration are not implemented. A separate [local three-component proof of concept](docs/pairing-poc.md) includes a scooter CLI, connect web chooser and Sunshine web-login adapter using disposable credentials.
+This repository contains a standalone Go HTTP service backed by PostgreSQL for consented installation and firmware-version reporting, plus a reviewable protocol and cryptographic profile for future pairing endpoints. The configuration-only [enrollment API and installed-client CLI](docs/enrollment-v1.md) support Sunshine through radio-gaga, independently of reporting. Dashboard, Bluetooth, installer and package installation are not integrated. A separate [local three-component proof of concept](docs/pairing-poc.md) includes a scooter CLI, connect web chooser and Sunshine web-login adapter using disposable credentials.
 
 The [pairing direction](docs/pairing-direction.md) is configuration-first for installed clients, with profile negotiation and a future separately trusted signed-package extension. Package installation is outside the initial implementation.
 
@@ -10,11 +10,11 @@ The client must send no request while reporting permission is `unset` or `denied
 
 The basic report contains only the protocol and consent schema versions, random installation and event IDs, MDB/DBC board variant and firmware-version facts, the fixed software-capability enum, and installer version when known. Unknown versions are JSON `null`; an absent MDB or DBC board is omitted. Hardware serials, VIN, IMEI, SIM identifiers, location, uptime and riding data are not part of the schema. Unknown request properties are rejected.
 
-Optional hardware inventory is not implemented. It has no default-on path and is not accepted by these endpoints. Pairing schemas and state transitions are specified in [`docs/pairing-protocol-v1.md`](docs/pairing-protocol-v1.md) and [`docs/pairing-openapi-v1.yaml`](docs/pairing-openapi-v1.yaml), but those production pairing endpoints and client integrations are not implemented. The local proof of concept runs independently and does not use lsd, Bluetooth, the dashboard or the reporting API.
+Optional hardware inventory is not implemented. It has no default-on path and is not accepted by these endpoints. Pairing schemas and state transitions are specified in [`docs/pairing-protocol-v1.md`](docs/pairing-protocol-v1.md) and [`docs/pairing-openapi-v1.yaml`](docs/pairing-openapi-v1.yaml), as an earlier encrypted-offer proposal. The implemented claim-exchange flow is documented in [enrollment-v1.md](docs/enrollment-v1.md). The local proof of concept runs independently and does not use lsd, Bluetooth, the dashboard or the reporting API.
 
 ## API
 
-The implemented installation-reporting contract is in [`docs/protocol-v1.md`](docs/protocol-v1.md) and [`openapi.yaml`](openapi.yaml). The pairing contract, which has no server handlers yet, is in [`docs/pairing-protocol-v1.md`](docs/pairing-protocol-v1.md) and [`docs/pairing-openapi-v1.yaml`](docs/pairing-openapi-v1.yaml).
+The implemented installation-reporting contract is in [`docs/protocol-v1.md`](docs/protocol-v1.md) and [`openapi.yaml`](openapi.yaml). The configuration-only pairing implementation is in [`docs/enrollment-v1.md`](docs/enrollment-v1.md). The encrypted-offer contract in [`docs/pairing-protocol-v1.md`](docs/pairing-protocol-v1.md) and [`docs/pairing-openapi-v1.yaml`](docs/pairing-openapi-v1.yaml) is a separate, unimplemented proposal.
 
 - `POST /api/v1/installations` registers the client-supplied random ID and submits its initial report. The client supplies a 32-byte random bearer credential; the server stores only its SHA-256 digest.
 - `PUT /api/v1/installations/{id}/report` submits a changed report using that credential.
