@@ -30,7 +30,7 @@ func main() {
 		Origin    string                `json:"origin"`
 		Providers []enrollment.Provider `json:"providers"`
 	}
-	if err := enrollment.Read(*configPath, &config); err != nil {
+	if err := enrollment.ReadCredential(*configPath, &config); err != nil {
 		log.Fatal("cannot read private configuration")
 	}
 	handler, err := enrollment.NewServer(*state, config.Origin, version, config.Providers, *development)

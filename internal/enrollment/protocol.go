@@ -112,13 +112,18 @@ func PrivateDir(dir string) error {
 	}
 	return nil
 }
-func Read(path string, v any) error {
+func Read(path string, v any) error { return readFile(path, v, 0077) }
+
+// Systemd credentials may have group-read mode bits for a named service-user ACL.
+func ReadCredential(path string, v any) error { return readFile(path, v, 0037) }
+
+func readFile(path string, v any, forbidden os.FileMode) error {
 	s, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
-	if !s.Mode().IsRegular() || s.Mode().Perm()&0077 != 0 {
-		return errors.New("private regular state file required")
+	if !s.Mode().IsRegular() || s.Mode().Perm()&forbidden != 0 {
+		return errors.New("protected regular file required")
 	}
 	f, err := os.Open(path)
 	if err != nil {
