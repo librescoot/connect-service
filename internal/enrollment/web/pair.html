@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Connect your scooter | Librescoot</title>
+  <link rel="stylesheet" href="/pair.css">
+  <script src="/pair.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="https://librescoot.org" aria-label="Librescoot home">Librescoot<span class="brand-service">connect</span></a>
+    <span class="header-note">Your scooter. Your choice.</span>
+  </header>
+  <main>
+    <ol class="steps" aria-label="Pairing progress">
+      <li {{if not .Session}}aria-current="step"{{end}}><span class="step-number">1</span>Pairing code</li>
+      <li {{if .Session}}{{if ne .Session.State "approved"}}aria-current="step"{{end}}{{end}}><span class="step-number">2</span>Provider</li>
+      <li {{if .Session}}{{if eq .Session.State "approved"}}aria-current="step"{{end}}{{end}}><span class="step-number">3</span>Approval</li>
+    </ol>
+    <div class="pairing-layout">
+      <section class="introduction" aria-labelledby="page-title">
+        <p class="eyebrow">LIBRESCOOT CONNECT</p>
+        <h1 id="page-title">Your scooter,<br> connected.</h1>
+        <p>Connect to a cloud service of your choice. Start with your scooter's pairing code, then sign in with your provider.</p>
+        <p class="optional-note">Cloud connection is optional.<br>You decide where to connect.</p>
+      </section>
+      <section class="pairing-card" aria-labelledby="card-title">
+        {{if .Message}}<div class="alert" role="alert">{{.Message}} Check the code, or request a new one on your scooter.</div>{{end}}
+        {{if .Session}}
+          {{if eq .Session.State "approved"}}
+            <span class="status-badge">Approval received</span>
+            <h2 id="card-title">Finish on your scooter</h2>
+            <p>Your provider approved the connection. Run <code>connect wait</code> on your scooter to finish setup.</p>
+          {{else}}
+            <span class="status-badge">Scooter found</span>
+            <h2 id="card-title">Choose your provider</h2>
+            <p>You'll sign in and approve the connection on your provider's website.</p>
+          {{end}}
+          <div class="providers">
+            {{range .Providers}}
+              <form action="/pair" method="post">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="action" value="provider">
+                <input type="hidden" name="provider" value="{{.ID}}">
+                <button class="provider-button" type="submit">Continue to {{.Name}}<span aria-hidden="true"></span></button>
+              </form>
+            {{end}}
+          </div>
+          <p class="card-note">Connection settings go directly between your scooter and your provider.</p>
+        {{else}}
+          <p class="card-kicker">LET'S GET STARTED</p>
+          <h2 id="card-title">Enter your pairing code</h2>
+          <p>Use the code shown on your scooter or by the connect command.</p>
+          <form action="/pair" method="post">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <input type="hidden" name="action" value="exchange">
+            <div class="field">
+              <label for="pairing-code">Pairing code</label>
+              <input id="pairing-code" class="code-input" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="11" placeholder="XXXXX-XXXXX" aria-describedby="code-help">
+              <p class="input-help" id="code-help">10 letters and numbers. Codes expire after 15 minutes.</p>
+            </div>
+            <p class="qr-notice" id="qr-detected" role="status" hidden>Pairing link detected. Select "Find scooter" to continue.</p>
+            <details class="manual-link">
+              <summary>Have a pairing link token instead?</summary>
+              <div class="field">
+                <label for="pairing-qr">Pairing link token</label>
+                <input id="pairing-qr" name="qr" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="43" aria-describedby="qr-help">
+                <p class="input-help" id="qr-help">Scanning the QR code fills this in automatically. Use either a token or a code.</p>
+              </div>
+            </details>
+            <button class="primary-button" type="submit">Find scooter</button>
+          </form>
+        {{end}}
+      </section>
+    </div>
+    <footer class="site-footer"><span class="privacy-mark" aria-hidden="true"></span>Pairing only. No vehicle telemetry passes through this site.</footer>
+  </main>
+</body>
+</html>

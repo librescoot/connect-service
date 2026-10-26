@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"html/template"
 	"net"
 	"net/http"
 	"net/url"
@@ -163,11 +162,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, provider := range s.providers {
 		destinations = append(destinations, provider.Origin)
 	}
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; form-action 'self' "+strings.Join(destinations, " ")+"; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self' "+strings.Join(destinations, " ")+"; frame-ancestors 'none'; base-uri 'none'")
 	r.Body = http.MaxBytesReader(w, r.Body, 8192)
 	defer r.Body.Close()
 	if r.URL.Path == "/healthz" && r.Method == http.MethodGet {
 		jsonReply(w, 200, map[string]string{"version": s.version})
+		return
+	}
+	if r.URL.Path == "/pair.css" && r.Method == http.MethodGet {
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		w.Write([]byte(pairCSS))
 		return
 	}
 	if r.URL.Path == "/pair.js" && r.Method == http.MethodGet {
@@ -455,7 +459,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if save() {
-			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; form-action 'self' "+p.Origin+"; frame-ancestors 'none'; base-uri 'none'")
+			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self' "+p.Origin+"; frame-ancestors 'none'; base-uri 'none'")
 			http.Redirect(w, r, p.Origin+"/connect#"+current.HandoffID, 303)
 		}
 		return
@@ -482,10 +486,6 @@ func jsonReply(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
-
-const pairJS = `const value=location.hash.slice(1);if(location.hash)history.replaceState(null,'','/pair');if(/^[A-Za-z0-9_-]{43}$/.test(value)){const input=document.querySelector('[name="qr"]');if(input)input.value=value;}`
-
-var pairPage = template.Must(template.New("pair").Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Librescoot Connect</title><script src="/pair.js" defer></script><h1>Connect your scooter</h1><p>Cloud connection is optional. Choose a provider and finish setup on its website.</p><p>{{.Message}}</p>{{if .Session}}<p>Status: {{.Session.State}}</p>{{range .Providers}}<form action="/pair" method="post"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="provider"><input type="hidden" name="provider" value="{{.ID}}"><button>Continue to {{.Name}}</button></form>{{end}}{{else}}<form action="/pair" method="post"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="action" value="exchange"><p><label>Pairing code <input name="code" autocomplete="off" maxlength="11"></label></p><p><label>QR capability <input name="qr" autocomplete="off" maxlength="43"></label></p><button>Find scooter</button></form>{{end}}<p>This service handles pairing, not vehicle telemetry.</p></html>`))
 
 func (s *Server) render(w http.ResponseWriter, csrf string, v *Session, message string) {
 	providers := []Provider{}

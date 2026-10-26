@@ -1,0 +1,98 @@
+:root {
+  color-scheme: light dark;
+  --page: #f4f6f8;
+  --surface: #fff;
+  --text: #111;
+  --muted: #555;
+  --subtle: #6b6b6b;
+  --border: #d4d8dc;
+  --accent: #087889;
+  --accent-hover: #06697a;
+  --accent-wash: #eaf6f8;
+  --alert: #991b1b;
+  --alert-wash: #fff1f1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  background: var(--page);
+  color: var(--text);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+a { color: inherit; }
+.site-header {
+  min-height: 88px;
+  padding: 20px max(24px, calc((100vw - 1040px) / 2));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: inline-flex; align-items: center; text-decoration: none; font-size: 24px; font-weight: 750; letter-spacing: -.8px; }
+.brand-service { margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--border); color: var(--accent); font-size: 18px; font-weight: 500; letter-spacing: -.3px; }
+.header-note { color: var(--subtle); font-size: 13px; }
+main { max-width: 1040px; margin: 0 auto; padding: 56px 24px 32px; }
+.steps { display: flex; gap: 32px; margin: 0 0 64px; padding: 0; list-style: none; color: var(--subtle); font-size: 13px; }
+.steps li { display: flex; align-items: center; gap: 9px; }
+.step-number { display: inline-grid; place-items: center; width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 50%; font-size: 12px; }
+.steps [aria-current="step"] { color: var(--accent); font-weight: 650; }
+.steps [aria-current="step"] .step-number { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pairing-layout { display: grid; grid-template-columns: 1fr 1.15fr; gap: 72px; align-items: start; }
+.introduction { padding-top: 24px; }
+.eyebrow, .card-kicker { margin: 0 0 16px; color: var(--accent); font-size: 11px; font-weight: 750; letter-spacing: 1.6px; }
+h1 { margin: 0 0 24px; font-size: clamp(36px, 4.5vw, 52px); line-height: 1.08; font-weight: 750; letter-spacing: -2px; }
+.introduction > p:not(.eyebrow) { max-width: 340px; color: var(--muted); }
+.introduction .optional-note { margin-top: 40px; padding-left: 16px; border-left: 2px solid var(--accent); font-size: 14px; }
+.pairing-card { padding: 36px; border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 6px; background: var(--surface); box-shadow: 0 4px 16px #00000005; }
+h2 { margin: 0 0 12px; font-size: 25px; line-height: 1.25; font-weight: 700; letter-spacing: -.7px; }
+.pairing-card > p { margin: 0 0 28px; color: var(--muted); font-size: 14px; }
+.field { margin: 24px 0; }
+label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 650; }
+input { width: 100%; min-width: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 4px; background: var(--page); color: var(--text); font: inherit; }
+input.code-input { padding: 15px; font-family: ui-monospace, "Cascadia Code", monospace; font-size: clamp(20px, 3vw, 25px); letter-spacing: 2px; text-transform: uppercase; }
+input::placeholder { color: var(--subtle); opacity: 1; }
+.input-help { margin: 8px 0 0; color: var(--subtle); font-size: 12px; }
+button { font: inherit; cursor: pointer; }
+.primary-button, .provider-button { min-height: 50px; width: 100%; border: 1px solid var(--accent); border-radius: 4px; padding: 12px 18px; font-size: 14px; font-weight: 650; }
+.primary-button { background: var(--accent); color: #fff; }
+.primary-button:hover { background: var(--accent-hover); }
+.provider-button { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: var(--surface); color: var(--accent); text-align: left; overflow-wrap: anywhere; }
+.provider-button:hover { background: var(--accent-wash); }
+.provider-button span { flex-shrink: 0; width: 9px; height: 9px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: rotate(45deg); }
+.providers { display: grid; gap: 12px; margin-top: 28px; }
+.pairing-card .card-note { margin: 24px 0 0; font-size: 12px; }
+.status-badge { display: inline-block; margin-bottom: 18px; padding: 4px 9px; border-radius: 3px; background: var(--accent-wash); color: var(--accent); font-size: 12px; font-weight: 650; }
+.manual-link { margin: 0 0 24px; font-size: 12px; color: var(--muted); }
+.manual-link summary { cursor: pointer; width: fit-content; padding: 5px 0; }
+.manual-link .field { margin: 16px 0; }
+.qr-notice { padding: 12px; background: var(--accent-wash); color: var(--accent); border-radius: 4px; font-size: 13px; }
+.alert { padding: 14px; margin-bottom: 24px; border-left: 3px solid var(--alert); background: var(--alert-wash); color: var(--alert); font-size: 14px; }
+code { font-family: ui-monospace, "Cascadia Code", monospace; }
+.site-footer { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 64px; color: var(--subtle); font-size: 12px; text-align: center; }
+.privacy-mark { width: 7px; height: 7px; flex-shrink: 0; background: var(--accent); border-radius: 50%; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+::selection { background: var(--accent-wash); color: var(--text); }
+@media (max-width: 720px) {
+  .site-header { min-height: 72px; padding: 18px 24px; }
+  .header-note { display: none; }
+  main { max-width: 540px; padding-top: 28px; }
+  .steps { justify-content: space-between; gap: 12px; margin-bottom: 28px; font-size: 11px; }
+  .steps li { gap: 6px; }
+  .step-number { width: 23px; height: 23px; }
+  .pairing-layout { grid-template-columns: 1fr; gap: 24px; }
+  .introduction { padding-top: 0; }
+  h1 { font-size: 36px; letter-spacing: -1.3px; margin-bottom: 16px; }
+  h1 br { display: none; }
+  .introduction > p:not(.eyebrow) { max-width: none; margin-bottom: 0; font-size: 14px; }
+  .introduction .optional-note { display: none; }
+  .eyebrow { display: none; }
+  .pairing-card { padding: 24px; }
+  .site-footer { margin-top: 28px; font-size: 11px; }
+}
+@media (prefers-color-scheme: dark) {
+  :root { --page: #111416; --surface: #1b1f22; --text: #f0f0f0; --muted: #bbc1c5; --subtle: #9da6ad; --border: #3c454c; --accent: #54d5e8; --accent-hover: #a0edf7; --accent-wash: #20363b; --alert: #ffb4b4; --alert-wash: #392629; }
+  .primary-button, .steps [aria-current="step"] .step-number { color: #111416; }
+}
