@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sunshine-dir", type=Path, required=True)
     parser.add_argument("--radio-gaga-dir", type=Path, required=True)
+    parser.add_argument("--host-test-db", action="store_true", help="use a loopback-only host-network database when Docker port publishing is unavailable")
     args = parser.parse_args()
     root = Path(tempfile.mkdtemp(prefix="connect-installed-test-"))
     connect = Path(__file__).resolve().parents[1]
@@ -70,20 +71,28 @@ def main():
         private(root / "mosquitto.conf", f"listener {broker_port} 127.0.0.1\nallow_anonymous false\npassword_file {root}/passwords\ncertfile {root}/server.crt\nkeyfile {root}/server.key\ncafile {root}/ca.crt\npersistence false\n")
         broker = start("mqtt", ["mosquitto", "-c", str(root / "mosquitto.conf")], connect)
         private(root / "broker.json", json.dumps({"port": broker_port, "pid": broker.pid}))
-        run(["docker", "run", "-d", "--rm", "--name", container, "--label", "purpose=connect-installed-test", "-e", "POSTGRES_USER=sunshine",
-             "-e", "POSTGRES_PASSWORD=sunshine", "-p", "127.0.0.1::5432", "postgis/postgis:17-3.5"], stdout=subprocess.DEVNULL)
+        database_args = ["docker", "run", "-d", "--rm", "--name", container, "--label", "purpose=connect-installed-test", "-e", "POSTGRES_USER=sunshine", "-e", "POSTGRES_PASSWORD=sunshine"]
+        database_port = "5432"
+        if args.host_test_db:
+            with socket.socket() as check:
+                check.bind(("127.0.0.1", 0))
+                database_port = str(check.getsockname()[1])
+            database_args += ["--network", "host", "postgis/postgis:17-3.5", "postgres", "-c", "listen_addresses=127.0.0.1", "-p", database_port]
+        else:
+            database_args += ["-p", "127.0.0.1::5432", "postgis/postgis:17-3.5"]
+        run(database_args, stdout=subprocess.DEVNULL)
         started = True
         for _ in range(60):
-            if subprocess.run(["docker", "exec", container, "pg_isready", "-U", "sunshine"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+            if subprocess.run(["docker", "exec", container, "pg_isready", "-U", "sunshine", "-p", database_port], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
                 break
             time.sleep(0.5)
         else:
             raise RuntimeError("test database unavailable")
-        port = run(["docker", "port", container, "5432/tcp"], capture_output=True, text=True).stdout.strip().rsplit(":", 1)[1]
+        port = database_port if args.host_test_db else run(["docker", "port", container, "5432/tcp"], capture_output=True, text=True).stdout.strip().rsplit(":", 1)[1]
         env["DATABASE_PORT"] = port
         env["DATABASE_URL"] = f"postgis://sunshine:sunshine@127.0.0.1:{port}/sunshine_connect_development"
         for database in ("sunshine_connect_development", "sunshine_development_queue", "sunshine_development_cache"):
-            run(["docker", "exec", container, "psql", "-U", "sunshine", "-d", "postgres", "-c", f"CREATE DATABASE {database} TEMPLATE template0;"], stdout=subprocess.DEVNULL)
+            run(["docker", "exec", container, "psql", "-U", "sunshine", "-p", database_port, "-d", "postgres", "-c", f"CREATE DATABASE {database} TEMPLATE template0;"], stdout=subprocess.DEVNULL)
         run(["bundle", "exec", "rails", "db:schema:load:primary", "db:schema:load:queue", "db:schema:load:cache", "tailwindcss:build"])
         for name in ("connect", "connect-bouncer"):
             run(["go", "build", "-o", str(root / name), "./cmd/" + name], cwd=connect)
@@ -103,11 +112,14 @@ def main():
                     time.sleep(0.5)
             else:
                 raise RuntimeError(f"test service not ready; inspect private logs in {root}")
-        for mode in ("code", "qr"):
+        for mode in ("code", "qr", "existing"):
             env["CONNECT_TEST_ENTRY"] = mode
             run(["bundle", "exec", "ruby", "test/support/connect_browser.rb"], timeout=150)
-        run(["bundle", "exec", "rails", "runner", 'abort "missing receipts" unless ConnectEnrollment.where.not(completed_at: nil).count == 2; '
-             'abort "active claims retained" unless BootstrapToken.active.where(purpose: "connect").count.zero?; puts "PASS: both scoped bootstrap claims completed and were revoked."'])
+        run(["bundle", "exec", "rails", "runner", 'abort "missing receipts" unless ConnectEnrollment.where.not(completed_at: nil).count == 3; '
+             'abort "active claims retained" unless BootstrapToken.active.where(purpose: "connect").count.zero?; '
+             'abort "platform classification lost" unless ConnectEnrollment.includes(:scooter).map { |e| e.scooter.mdb_flavor }.sort == %w[librescoot stock stock]; '
+             'abort "existing scooter or credentials duplicated" unless Scooter.count == 3 && ApiToken.scooter_tokens.count == 3 && ScooterClaim.count == 3; '
+             'puts "PASS: stock, Librescoot and pre-owned claims completed without duplicate scooter, token or claim."'])
     finally:
         for process in reversed(processes):
             if process.poll() is None:

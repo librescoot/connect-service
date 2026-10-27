@@ -68,7 +68,7 @@ func main() {
 }
 func run() error {
 	originArg := flag.String("endpoint", "https://connect.librescoot.org", "trusted rendezvous origin")
-	directory := flag.String("state-dir", "/data/connect-service", "private pairing journal directory")
+	directory := flag.String("state-dir", "", "private pairing journal directory (auto-detected on the scooter)")
 	binary := flag.String("client", "radio-gaga", "installed client executable")
 	clientConfig := flag.String("client-config", "", "local client config path; empty uses its managed default")
 	development := flag.Bool("development", false, "allow isolated loopback HTTP testing")
@@ -87,13 +87,16 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	client, err := exec.LookPath(*binary)
+	client, err := installedClient(*binary)
 	if err != nil {
 		return errors.New("installed cloud client not found")
 	}
 	client, err = filepath.Abs(client)
 	if err != nil {
 		return err
+	}
+	if *directory == "" {
+		*directory = stateDirectoryForDataPath("/data")
 	}
 	if err := enrollment.PrivateDir(*directory); err != nil {
 		return err
