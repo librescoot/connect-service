@@ -12,6 +12,9 @@ func TestSystemdCredentialPermissionsDoNotRelaxStatePermissions(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"origin":"https://connect.example"}`), 0440); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(path, 0440); err != nil {
+		t.Fatal(err)
+	}
 	var config struct {
 		Origin string `json:"origin"`
 	}
