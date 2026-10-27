@@ -23,6 +23,18 @@ The implemented installation-reporting contract is in [`docs/protocol-v1.md`](do
 
 There is no public list or lookup endpoint. The server does not persist request IP addresses and emits no per-request access logs. Before public exposure, deploy a trusted ingress with a per-client API rate limit and connection cap, using [`deploy/nginx-rate-limit.conf.example`](deploy/nginx-rate-limit.conf.example) or equivalent controls. Do not persist client IP addresses or log request URIs, queries, authorization headers or bodies.
 
+## Scooter CLI
+
+Build only the administrative client for an ARMv7 MDB:
+
+```sh
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags='-s -w' -o connect ./cmd/connect
+```
+
+The CLI requires an installed radio-gaga with the `radio-gaga/1` profile. Run `connect register`, `connect code` and `connect wait` explicitly to connect an account; `connect status` reports the local ceremony state. The CLI has no background service, automatic enrollment or reporting side effect. The scooter needs HTTPS access to the rendezvous and selected provider, plus access to that provider's verified-TLS MQTT endpoint.
+
+The bouncer and reporting server are separate hosted programs, not scooter dependencies. See [the enrollment protocol](docs/enrollment-v1.md) for retry behavior, private state and trust boundaries.
+
 ## Local run
 
 Requirements: Go 1.25.14 and PostgreSQL 15 or newer. The service applies checked-in SQL migrations at startup.
@@ -82,3 +94,9 @@ The initial registration fingerprint remains with the active current record so a
 ## Deployment example
 
 [`deploy/connect-server.service`](deploy/connect-server.service) is a systemd hardening example. Keep database credentials in a root-readable environment file outside this repository. Terminate HTTPS at a maintained reverse proxy, bind the application to loopback, and use a proxy access-log format that records only timestamp, method and response status. Do not put private hostnames, addresses, TLS material or credentials in this repository.
+
+## License
+
+Original code and documentation are licensed under [CC-BY-NC-SA-4.0](LICENSE). Separate commercial licenses may be arranged with the maintainers.
+
+Copied website assets retain their [website license](internal/enrollment/web/assets/LICENSE.website). Abel, Hanken Grotesk and JetBrains Mono retain their SIL Open Font License 1.1 notices alongside the font files. Dependencies retain their own licenses.
