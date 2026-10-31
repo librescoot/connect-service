@@ -34,6 +34,12 @@ type journal struct {
 	Acknowledged bool                    `json:"acknowledged"`
 }
 
+type connectHTTPError int
+
+func (e connectHTTPError) Error() string {
+	return fmt.Sprintf("connect service returned HTTP %d", int(e))
+}
+
 func request(ctx context.Context, method, endpoint, token string, body, result any) error {
 	encoded, err := json.Marshal(body)
 	if err != nil {
@@ -53,7 +59,7 @@ func request(ctx context.Context, method, endpoint, token string, body, result a
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("connect service returned HTTP %d", response.StatusCode)
+		return connectHTTPError(response.StatusCode)
 	}
 	if result != nil {
 		return enrollment.Decode(response.Body, result)
@@ -74,14 +80,17 @@ func run() error {
 	development := flag.Bool("development", false, "allow isolated loopback HTTP testing")
 	identityFile := flag.String("identity-file", "", "synthetic identity file for isolated client tests")
 	timeout := flag.Duration("timeout", 15*time.Minute, "maximum wait for web approval and safe application")
+	machine := flag.Bool("json", false, "safe machine interface: start|status|stop")
+	worker := flag.Bool("background-worker", false, "run the explicitly requested pairing worker")
+	cooperative := flag.Bool("cooperative-wait", false, "pause the worker between enrollment steps")
 	showVersion := flag.Bool("version", false, "print version")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println(version)
 		return nil
 	}
-	if flag.NArg() != 1 {
-		return errors.New("usage: connect [options] register|code|wait|status")
+	if flag.NArg() != 1 && !(*worker && flag.NArg() == 0) {
+		return errors.New("usage: connect [options] register|code|wait|status; connect -json start|status|stop")
 	}
 	origin, err := enrollment.Origin(*originArg, *development)
 	if err != nil {
@@ -97,6 +106,23 @@ func run() error {
 	}
 	if *directory == "" {
 		*directory = stateDirectoryForDataPath("/data")
+	}
+	if *machine || *worker {
+		o := machineOptions{origin: origin, directory: *directory, client: client, config: *clientConfig, identity: *identityFile, development: *development, timeout: *timeout}
+		duration := min(*timeout, 20*time.Second)
+		if *worker {
+			duration = *timeout
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), duration)
+		defer cancel()
+		if *worker {
+			executable, err := os.Executable()
+			if err != nil {
+				return errors.New("installed connect client unavailable")
+			}
+			return pairingWorker(ctx, o, executable, machineCommand)
+		}
+		return machineJSON(ctx, o, flag.Arg(0))
 	}
 	if err := enrollment.PrivateDir(*directory); err != nil {
 		return err
@@ -206,6 +232,9 @@ func run() error {
 			return nil
 		}
 		for {
+			if *cooperative && pauseRequested(*directory) {
+				return nil
+			}
 			if state.Offer == nil {
 				var offer enrollment.Offer
 				if err := request(ctx, http.MethodGet, deviceURL("claim"), state.Registration.Token, nil, &offer); err != nil {
@@ -223,6 +252,9 @@ func run() error {
 				}
 			}
 			if state.Offer != nil {
+				if *cooperative && pauseRequested(*directory) {
+					return nil
+				}
 				body := struct {
 					SessionID      string `json:"session_id"`
 					Profile        string `json:"profile"`

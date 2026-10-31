@@ -1,6 +1,6 @@
 # Librescoot connect service
 
-This repository contains a standalone Go HTTP service backed by PostgreSQL for consented installation and firmware-version reporting, plus a reviewable protocol and cryptographic profile for future pairing endpoints. The configuration-only [enrollment API and installed-client CLI](docs/enrollment-v1.md) support Sunshine through radio-gaga, independently of reporting. Dashboard, Bluetooth, installer and package installation are not integrated. A separate [local three-component proof of concept](docs/pairing-poc.md) includes a scooter CLI, connect web chooser and Sunshine web-login adapter using disposable credentials.
+This repository contains a standalone Go HTTP service backed by PostgreSQL for consented installation and firmware-version reporting, plus a reviewable protocol and cryptographic profile for future pairing endpoints. The configuration-only [enrollment API and installed-client CLI](docs/enrollment-v1.md) support Sunshine through radio-gaga, independently of reporting. The lsd Cloud page, Bluetooth extended commands and dashboard Settings expose the same explicit account-pairing flow. Installer integration and package installation are separate. A separate [local three-component proof of concept](docs/pairing-poc.md) includes a scooter CLI, connect web chooser and Sunshine web-login adapter using disposable credentials.
 
 The [pairing direction](docs/pairing-direction.md) is configuration-first for installed clients, with profile negotiation and a future separately trusted signed-package extension. Package installation is outside the initial implementation.
 
@@ -31,7 +31,7 @@ Build only the administrative client for an ARMv7 MDB:
 CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags='-s -w' -o connect ./cmd/connect
 ```
 
-The CLI requires an installed radio-gaga with the `radio-gaga/1` profile. Run `connect register`, `connect code` and `connect wait` explicitly to connect an account; `connect status` reports the local ceremony state. The CLI has no background service, automatic enrollment or reporting side effect. The scooter needs HTTPS access to the rendezvous and selected provider, plus access to that provider's verified-TLS MQTT endpoint.
+The CLI requires an installed radio-gaga with the `radio-gaga/1` profile. Run `connect register`, `connect code` and `connect wait` explicitly to connect an account; `connect status` reports the local ceremony state. `connect -json start|status|stop` provides a bounded machine interface for the local web, Bluetooth and dashboard controls. Start explicitly launches a transient systemd worker; stop requests a pause between steps without interrupting a configuration transaction. It never starts automatically and has no reporting side effect. The scooter needs HTTPS access to the rendezvous and selected provider, plus access to that provider's verified-TLS MQTT endpoint.
 
 The bouncer and reporting server are separate hosted programs, not scooter dependencies. See [the enrollment protocol](docs/enrollment-v1.md) for retry behavior, private state and trust boundaries.
 
