@@ -204,6 +204,17 @@ func pairingWorker(ctx context.Context, o machineOptions, executable string, run
 	if state.Complete {
 		return nil
 	}
+	// An issued provider claim may already have been applied. Preserve it for
+	// a safe retry even if the bouncer acknowledgement window has expired.
+	if state.Offer != nil {
+		if pauseRequested(o.directory) {
+			return nil
+		}
+		if _, err = run(ctx, executable, append(o.args(), "-cooperative-wait", "wait")...); err != nil {
+			return errors.New("pairing did not complete")
+		}
+		return nil
+	}
 	if state.Registration.ID != "" {
 		expired := state.Registration.ExpiresAt <= time.Now().Unix()
 		if !expired {

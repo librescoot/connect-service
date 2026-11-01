@@ -152,6 +152,30 @@ func TestMachineStopRequestsPauseWithoutKillingConfiguration(t *testing.T) {
 	}
 }
 
+func TestMachineWorkerPreservesDeliveredOfferAfterBouncerExpiry(t *testing.T) {
+	o, state := machineFixture(t)
+	state.Registration.ExpiresAt = 1
+	state.Offer = &enrollment.Offer{ClaimToken: "private-claim"}
+	if err := enrollment.Write(filepath.Join(o.directory, "pairing.json"), state); err != nil {
+		t.Fatal(err)
+	}
+	var calls [][]string
+	run := func(_ context.Context, binary string, args ...string) ([]byte, error) {
+		calls = append(calls, append([]string{binary}, args...))
+		return nil, nil
+	}
+	if err := pairingWorker(context.Background(), o, "/usr/bin/connect", run); err != nil {
+		t.Fatal(err)
+	}
+	current, err := readPairing(o)
+	if err != nil || current.Offer == nil || current.Offer.ClaimToken != "private-claim" {
+		t.Fatal("issued offer discarded")
+	}
+	if len(calls) != 1 || !strings.HasSuffix(strings.Join(calls[0], " "), "-cooperative-wait wait") {
+		t.Fatal("did not resume exact issued claim")
+	}
+}
+
 func TestMachineWorkerKeepsCompletedJournalAndResetsOnlyExpiredSession(t *testing.T) {
 	o, state := machineFixture(t)
 	state.Complete = true
