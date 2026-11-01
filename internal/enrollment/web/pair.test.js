@@ -38,7 +38,7 @@ test('existing token fragment remains supported', () => {
 });
 
 test('invalid short-code fragments do not prefill', () => {
-  for (const hash of ['#code=01234-ABCIO', '#code=01234-abcde', '#code=01234-ABCDE&x=1', '#code=01234ABCDE', '#code=%30%31%32%33%34-ABCDE', '#code=01234-ABCDE\n']) {
+  for (const hash of ['#code=01234-ABCIO', '#code=01234-abcde', '#code=01234-ABCDE&x=1', '#code=01234ABCDE', '#code=%30%31%32%33%34-ABCDE', '#code=01234-ABCDE\n', '#' + 'a'.repeat(43) + '\n']) {
     const result = load(hash);
     assert.equal(result.inputs.code.value, '', hash);
     assert.equal(result.inputs.qr.value, '', hash);
