@@ -6,6 +6,7 @@
       "name": "Sunshine",
       "origin": "https://sunshine.rescoot.org",
       "profiles": ["radio-gaga/1"],
+      "preclaim_enabled": false,
       "credential": "REPLACE_WITH_32_RANDOM_BYTES_AS_UNPADDED_BASE64URL"
     }
   ]

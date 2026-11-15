@@ -148,9 +148,30 @@ func run() error {
 	deviceURL := func(action string) string {
 		return origin + "/api/v1/enrollments/" + state.Registration.ID + "/" + action
 	}
+	submitIdentity := func() error {
+		markerPath := filepath.Join(*directory, "identity-submitted.json")
+		var submitted string
+		if err := enrollment.Read(markerPath, &submitted); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if submitted == state.Registration.ID {
+			return nil
+		}
+		identity := readIdentity(ctx, *development, *identityFile)
+		err := request(ctx, http.MethodPost, deviceURL("identity"), state.Registration.Token, identity, nil)
+		if err != nil && !errors.Is(err, connectHTTPError(http.StatusNotFound)) && !errors.Is(err, connectHTTPError(http.StatusConflict)) {
+			return err
+		}
+		return enrollment.Write(markerPath, state.Registration.ID)
+	}
 	switch flag.Arg(0) {
 	case "register":
 		if state.Registration.ID != "" {
+			if state.Claim == nil && state.Offer == nil && !state.Complete {
+				if err := submitIdentity(); err != nil {
+					return err
+				}
+			}
 			fmt.Println("Already registered.")
 			return nil
 		}
@@ -173,6 +194,9 @@ func run() error {
 			return errors.New("invalid registration")
 		}
 		if err := save(); err != nil {
+			return err
+		}
+		if err := submitIdentity(); err != nil {
 			return err
 		}
 		fmt.Println("Registered. Polling credential saved privately; run code to start web pairing.")

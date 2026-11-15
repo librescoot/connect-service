@@ -20,12 +20,50 @@ import (
 
 const ProfileRadioGaga = "radio-gaga/1"
 
+type Identity struct {
+	IMEI      string `json:"imei,omitempty"`
+	ICCID     string `json:"iccid,omitempty"`
+	MDBSerial string `json:"mdb_serial,omitempty"`
+}
+
+func (i Identity) Valid() bool {
+	digits := func(s string, min, max int) bool {
+		if s == "" {
+			return true
+		}
+		if len(s) < min || len(s) > max {
+			return false
+		}
+		for _, c := range s {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	if !digits(i.IMEI, 15, 15) || !digits(i.ICCID, 18, 22) {
+		return false
+	}
+	if i.MDBSerial != "" {
+		if len(i.MDBSerial) != 16 {
+			return false
+		}
+		for _, c := range i.MDBSerial {
+			if !strings.ContainsRune("0123456789abcdef", c) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 type Provider struct {
-	ID         string   `json:"id"`
-	Name       string   `json:"name"`
-	Origin     string   `json:"origin"`
-	Profiles   []string `json:"profiles"`
-	Credential string   `json:"credential"`
+	PreclaimEnabled bool     `json:"preclaim_enabled,omitempty"`
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	Origin          string   `json:"origin"`
+	Profiles        []string `json:"profiles"`
+	Credential      string   `json:"credential"`
 }
 type Registration struct {
 	ID        string `json:"session_id"`

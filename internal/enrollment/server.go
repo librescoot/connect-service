@@ -15,20 +15,21 @@ import (
 )
 
 type Session struct {
-	ID                string   `json:"id"`
-	PollDigest        string   `json:"poll_digest"`
-	Profiles          []string `json:"profiles"`
-	ExpiresAt         int64    `json:"expires_at"`
-	State             string   `json:"state"`
-	CodeDigest        string   `json:"code_digest,omitempty"`
-	QRDigest          string   `json:"qr_digest,omitempty"`
-	ClaimExpiresAt    int64    `json:"claim_expires_at,omitempty"`
-	BrowserDigest     string   `json:"browser_digest,omitempty"`
-	CeremonyExpiresAt int64    `json:"ceremony_expires_at,omitempty"`
-	HandoffID         string   `json:"handoff_id,omitempty"`
-	ProviderID        string   `json:"provider_id,omitempty"`
-	Profile           string   `json:"profile,omitempty"`
-	ClaimToken        string   `json:"claim_token,omitempty"`
+	Identity          *Identity `json:"identity,omitempty"`
+	ID                string    `json:"id"`
+	PollDigest        string    `json:"poll_digest"`
+	Profiles          []string  `json:"profiles"`
+	ExpiresAt         int64     `json:"expires_at"`
+	State             string    `json:"state"`
+	CodeDigest        string    `json:"code_digest,omitempty"`
+	QRDigest          string    `json:"qr_digest,omitempty"`
+	ClaimExpiresAt    int64     `json:"claim_expires_at,omitempty"`
+	BrowserDigest     string    `json:"browser_digest,omitempty"`
+	CeremonyExpiresAt int64     `json:"ceremony_expires_at,omitempty"`
+	HandoffID         string    `json:"handoff_id,omitempty"`
+	ProviderID        string    `json:"provider_id,omitempty"`
+	Profile           string    `json:"profile,omitempty"`
+	ClaimToken        string    `json:"claim_token,omitempty"`
 }
 type serverState struct {
 	Sessions map[string]*Session `json:"sessions"`
@@ -46,6 +47,7 @@ type Server struct {
 	development bool
 	lock        *os.File
 	state       serverState
+	preclaims   map[string]string
 	rates       map[string]rate
 	now         func() time.Time
 }
@@ -80,6 +82,22 @@ func NewServer(path, origin, version string, providers []Provider, development b
 	if s.state.Sessions == nil || len(s.state.Sessions) > 512 {
 		lock.Close()
 		return nil, errors.New("invalid state")
+	}
+	s.preclaims = map[string]string{}
+	if err := Read(path+".preclaims", &s.preclaims); err != nil && !errors.Is(err, os.ErrNotExist) {
+		lock.Close()
+		return nil, err
+	}
+	if s.preclaims == nil || len(s.preclaims) > 50000 {
+		lock.Close()
+		return nil, errors.New("invalid preclaim registry")
+	}
+	for iccid, id := range s.preclaims {
+		p := s.provider(id)
+		if !(Identity{ICCID: iccid}).Valid() || iccid == "" || p == nil || !p.PreclaimEnabled {
+			lock.Close()
+			return nil, errors.New("invalid preclaim registry")
+		}
 	}
 	return s, nil
 }
@@ -272,6 +290,21 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		switch {
+		case parts[1] == "identity" && r.Method == http.MethodPost:
+			if v.State != "registered" {
+				http.Error(w, "already started", 409)
+				return
+			}
+			var identity Identity
+			if Decode(r.Body, &identity) != nil || !identity.Valid() {
+				http.Error(w, "invalid identity", 400)
+				return
+			}
+			v.Identity = &identity
+			if save() {
+				w.WriteHeader(204)
+			}
+			return
 		case parts[1] == "code" && r.Method == http.MethodPost:
 			if v.State != "registered" && v.State != "claim_active" {
 				http.Error(w, "already selected", 409)
@@ -311,6 +344,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			v.State = "complete"
 			v.ClaimToken = ""
+			v.Identity = nil
 			if save() {
 				w.WriteHeader(204)
 			}
@@ -331,6 +365,44 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "unauthorized", 401)
 			return
 		}
+		if parts[1] == "preclaims" {
+			if !p.PreclaimEnabled || (r.Method != http.MethodPost && r.Method != http.MethodDelete) {
+				http.NotFound(w, r)
+				return
+			}
+			var body struct {
+				ICCID string `json:"iccid"`
+			}
+			if Decode(r.Body, &body) != nil || body.ICCID == "" || !(Identity{ICCID: body.ICCID}).Valid() {
+				http.Error(w, "invalid ICCID", 400)
+				return
+			}
+			owner := s.preclaims[body.ICCID]
+			if owner != "" && owner != p.ID {
+				http.Error(w, "conflict", 409)
+				return
+			}
+			if r.Method == http.MethodPost {
+				if owner == "" && len(s.preclaims) >= 50000 {
+					http.Error(w, "capacity reached", 429)
+					return
+				}
+				s.preclaims[body.ICCID] = p.ID
+			} else {
+				delete(s.preclaims, body.ICCID)
+			}
+			if err := Write(s.path+".preclaims", s.preclaims); err != nil {
+				if owner == "" {
+					delete(s.preclaims, body.ICCID)
+				} else {
+					s.preclaims[body.ICCID] = owner
+				}
+				http.Error(w, "unavailable", 503)
+				return
+			}
+			w.WriteHeader(204)
+			return
+		}
 		var v *Session
 		for _, candidate := range s.state.Sessions {
 			if candidate.HandoffID == parts[1] && candidate.ProviderID == p.ID && ValidToken(parts[1]) {
@@ -343,7 +415,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.Method == http.MethodGet {
-			jsonReply(w, 200, map[string]any{"session_id": v.ID, "profile": v.Profile, "expires_at": v.CeremonyExpiresAt})
+			context := map[string]any{"session_id": v.ID, "profile": v.Profile, "expires_at": v.CeremonyExpiresAt}
+			if v.Identity != nil {
+				context["identity"] = v.Identity
+			}
+			jsonReply(w, 200, context)
 			return
 		}
 		if r.Method == http.MethodPost {
@@ -441,6 +517,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p := s.provider(r.Form.Get("provider"))
+		if p != nil && current.Identity != nil {
+			if owner := s.preclaims[current.Identity.ICCID]; owner != "" && owner != p.ID {
+				http.Error(w, "provider unavailable", 403)
+				return
+			}
+		}
 		if p == nil {
 			http.Error(w, "unknown provider", 400)
 			return
@@ -499,6 +581,11 @@ func (s *Server) render(w http.ResponseWriter, csrf string, v *Session, message 
 	providers := []Provider{}
 	if v != nil {
 		for _, p := range s.providers {
+			if v.Identity != nil {
+				if owner := s.preclaims[v.Identity.ICCID]; owner != "" && owner != p.ID {
+					continue
+				}
+			}
 			for _, profile := range v.Profiles {
 				if slices.Contains(p.Profiles, profile) {
 					providers = append(providers, Provider{ID: p.ID, Name: p.Name})

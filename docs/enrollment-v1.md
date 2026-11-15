@@ -4,7 +4,7 @@ This implementation connects an installed client through a provider-neutral rend
 
 ## Flow
 
-1. Explicit `connect register` queries the installed client's profiles, registers them and privately saves the returned polling credential.
+1. Explicit `connect register` queries the installed client's profiles, registers them and privately saves the returned polling credential. It sends available IMEI, ICCID and full MDB serial to the rendezvous for this session.
 2. Explicit `connect code` requests a 15-minute claim window and displays a code and fragment-bearing pairing URL.
 3. The user exchanges the code on connect, chooses a compatible provider, logs in there and confirms the connection. The browser receives no claim or permanent credential.
 4. The provider retrieves the selected session/profile using its own server credential, then submits a short-lived claim token bound to that session.
@@ -19,10 +19,12 @@ Public communication uses verified HTTPS, with no credential-bearing redirects. 
 All responses are `Cache-Control: no-store`. Bearer authentication uses the Authorization header, never a query string. Display capabilities and provider claims use their specified POST bodies; arbitrary callback destinations are not accepted. There is no anonymous enumeration or reporting side effect.
 
 - `POST /api/v1/enrollments`: `{ "profiles": ["radio-gaga/1"] }`; returns random `session_id`, `polling_token` and `expires_at`.
+- `POST /api/v1/enrollments/{session_id}/identity`: device bearer; optional `imei`, `iccid` and `mdb_serial` strings. Accepted before the claim window starts. The full MDB serial is lowercase hexadecimal. Missing fields are omitted; malformed identifiers are rejected. Existing registrations without this step remain supported.
 - `POST /api/v1/enrollments/{session_id}/code`: device bearer; returns code, pairing URL and expiry. Explicit refresh before browser exchange invalidates the previous code/QR pair.
 - `GET /api/v1/enrollments/{session_id}/claim`: device bearer; returns sanitized state until approval, then `session_id`, `provider_id`, `provider_origin`, selected `profile`, short-lived `claim_token` and expiry.
 - `POST /api/v1/enrollments/{session_id}/complete`: device bearer; idempotently marks completion and deletes the claim token.
-- `GET /api/v1/provider/{provider_id}/{handoff_id}`: provider bearer; returns the reserved session, selected profile and ceremony deadline. A handoff ID alone cannot retrieve context.
+- `GET /api/v1/provider/{provider_id}/{handoff_id}`: provider bearer; returns the reserved session, selected profile, ceremony deadline and optional `identity` object. Only the selected provider can retrieve it. A handoff ID alone cannot retrieve context.
+- `POST /api/v1/provider/{provider_id}/preclaims` and `DELETE` at the same path: enabled provider bearer and `{ "iccid": "..." }`. Add or remove an ICCID provider restriction, idempotently. A different provider cannot overwrite or remove an existing restriction. The operator must explicitly enable `preclaim_enabled` for that provider.
 - `POST /api/v1/provider/{provider_id}/{handoff_id}`: provider bearer and `{ "claim_token": "..." }`; identical retries succeed, changed claims conflict.
 - `GET /healthz`: immutable build revision only.
 
@@ -31,6 +33,12 @@ All responses are `Cache-Control: no-store`. Bearer authentication uses the Auth
 The single-process bouncer holds at most 512 transient registrations in a private, atomically replaced state file. Device polling credentials and display capabilities are stored as digests. Expiry is swept each minute. Source rate limits, a bounded limiter table and the global registration cap bound public resource use. Deploy a trusted rate/connection-limited ingress; only the loopback proxy may supply `X-Real-IP`. Access logs must omit capabilities, bodies and authorization headers.
 
 Pairing state is disposable and is not backed up. Loss or restore of transient state requires a new local registration/ceremony; never restore a snapshot containing old browser/code capabilities. Established provider connections do not depend on this state.
+
+Provider preclaims are separate from transient pairing state, in the private `pairing.json.preclaims` file alongside the configured state path. They survive restarts and session expiry. Back up and reconcile this registry with the provider's authoritative records; restore it independently of transient ceremony state. Removing a provider or disabling its preclaim capability requires removing its entries first. Providers must serialize adds and removals for each ICCID and retry/reconcile failed requests. These records restrict provider selection only; they do not create a scooter, link an account, issue credentials or establish ownership. On a match, only that provider appears and the server also rejects attempts to select another. No live provider lookup is required. If the ICCID is unavailable, no restriction can be applied. Device-reported identifiers can be copied and must never be used as proof of ownership.
+
+Explicitly starting Connect sends available device identifiers to the rendezvous before provider selection. The client reads `internet[sim-imei]`, `internet[sim-iccid]` and `version:mdb[serial_number_real]` from local Redis, independently omitting unavailable or malformed fields. Registration and identity submission are separate so older rendezvous servers, which return 404 for the identity endpoint, continue to support pairing without this feature. A newer rendezvous accepts older clients without an identity; no ICCID restriction can be applied to those clients. The provider receives the identifiers only after it is selected and authenticates the handoff. The rendezvous removes session identifiers on completion or expiry. Keep identifiers and credentials out of access logs, URLs and browser output.
+
+Upgrade the bouncer before the client and enable the provider registry only after the provider can synchronize it. Older bouncers reject session files containing identity fields: when rolling back, discard transient session state and start new ceremonies rather than restoring capabilities. An older bouncer does not enforce the preclaim registry. Existing stable images remain unchanged until a release updates their Connect pin.
 
 ## Installed client interface
 
